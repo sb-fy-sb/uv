@@ -456,7 +456,9 @@ def get_operating_system_and_architecture():
         )
         sys.exit(0)
 
-    if operating_system == "linux":
+    if operating_system in ("linux", "harmonyos"):
+        # OHOS (OpenHarmony) reports "harmonyos" from sysconfig.get_platform()
+        # but is Linux-based with musl libc, so treat it identically.
         # noinspection PyProtectedMember
         from .packaging._manylinux import _get_glibc_version
 
