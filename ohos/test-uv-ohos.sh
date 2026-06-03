@@ -18,12 +18,10 @@ TIMEOUT=120
 REPORT_FILE="ohos-uv-test-report-$(date +%Y%m%d_%H%M%S).md"
 FAST_MODE=false
 
-# OHOS 设备上可写的目录（/root 是只读文件系统）
-DEVICE_CACHE_DIR="/data/local/tmp/.uv-cache"
-DEVICE_DATA_DIR="/data/local/tmp/.uv-data"
-DEVICE_TOOL_DIR="/data/local/tmp/.uv-tool"
-DEVICE_TOOL_BIN_DIR="/data/local/tmp/.uv-tool-bin"
-DEVICE_PYTHON_INSTALL_DIR="/data/local/tmp/.uv-python"
+# OHOS 设备上 uv 的默认存储路径已通过源码修复（lib.rs 中 OHOS 平台自动将
+# HOME 重定向到 /data/local/tmp），不再需要手动设置 UV_CACHE_DIR 等环境变量。
+# 以下变量仅保留用于清理。
+DEVICE_HOME="/data/local/tmp"
 
 # --- 参数解析 ---
 while [[ $# -gt 0 ]]; do
@@ -48,10 +46,10 @@ run_on_device() {
     timeout "$TIMEOUT" "$HDC" shell "$@" 2>&1 || true
 }
 
-# 所有 UV 环境变量（设置到可写目录，避免 /root 只读问题）
+# uv 环境变量（不再需要路径类变量，源码已修复 HOME 重定向）
 # UV_INDEX_URL: 使用国内 PyPI 镜像加速 pip 包下载
 # UV_PYTHON_INSTALL_MIRROR: 使用国内镜像加速 Python 解释器下载
-UV_ENV_VARS="UV_CACHE_DIR=$DEVICE_CACHE_DIR UV_DATA_DIR=$DEVICE_DATA_DIR UV_TOOL_DIR=$DEVICE_TOOL_DIR UV_TOOL_BIN_DIR=$DEVICE_TOOL_BIN_DIR UV_PYTHON_INSTALL_DIR=$DEVICE_PYTHON_INSTALL_DIR UV_INDEX_URL=https://pypi.mirrors.ustc.edu.cn/simple/ UV_PYTHON_INSTALL_MIRROR=https://ghfast.top/https://github.com/indygreg/python-build-standalone/releases/download"
+UV_ENV_VARS="UV_INDEX_URL=https://pypi.mirrors.ustc.edu.cn/simple/ UV_PYTHON_INSTALL_MIRROR=https://ghfast.top/https://github.com/indygreg/python-build-standalone/releases/download"
 
 # 带 UV 环境变量的命令执行
 run_uv() {
@@ -214,7 +212,7 @@ log_pass "uv 版本: $UV_VERSION"
 
 # --- 准备设备环境 ---
 log_info "准备设备环境 (可写目录等)..."
-run_on_device "mkdir -p $DEVICE_CACHE_DIR $DEVICE_DATA_DIR $DEVICE_TOOL_DIR $DEVICE_TOOL_BIN_DIR $DEVICE_PYTHON_INSTALL_DIR" 2>/dev/null || true
+# HOME 重定向后，uv 会自动创建所需的目录，无需手动 mkdir
 
 # --- 清理上一次测试残留 ---
 log_info "清理上次测试残留..."
@@ -251,6 +249,7 @@ run_test "A11" "self update --dry-run" "self update --dry-run" 0 || true
 log_group "Group B: Python 管理"
 
 PYTHON_INSTALLED=false
+PROJECT_INIT_OK=false
 
 run_test "B1" "Python 列表" "python list" 0 || true
 
@@ -262,7 +261,7 @@ fi
 
 if $PYTHON_INSTALLED; then
     run_test "B3" "查找 Python" "python find" 0 || true
-    run_test "B5" "Python pin" "python pin 3.12" 0 || true
+    run_test "B5" "Python pin" "python pin 3.12 --project /data/local/tmp" 0 || true
     run_test "B6" "Python 列表 --only-installed" "python list --only-installed" 0 || true
     run_test "B7" "Python 列表 --all-versions" "python list --all-versions" 0 || true
     run_test "B8" "Python 列表 JSON 格式" "python list --only-installed --output-format json" 0 || true
@@ -622,7 +621,7 @@ fi
 # 清理测试残留
 # ===========================================================================
 log_info "清理测试残留..."
-run_on_device "rm -rf /data/local/tmp/testvenv /data/local/tmp/testvenv2 /data/local/tmp/testvenv_seed /data/local/tmp/testvenv_py /data/local/tmp/testvenv_sys /data/local/tmp/testvenv_prompt /data/local/tmp/testproj /data/local/tmp/testproj_lib /data/local/tmp/testproj_app /data/local/tmp/test_script.py /data/local/tmp/requirements.in /data/local/tmp/requirements.txt /data/local/tmp/requirements_install.txt /data/local/tmp/test_build $DEVICE_CACHE_DIR $DEVICE_DATA_DIR $DEVICE_TOOL_DIR $DEVICE_TOOL_BIN_DIR $DEVICE_PYTHON_INSTALL_DIR" 2>/dev/null || true
+run_on_device "rm -rf /data/local/tmp/testvenv /data/local/tmp/testvenv2 /data/local/tmp/testvenv_seed /data/local/tmp/testvenv_py /data/local/tmp/testvenv_sys /data/local/tmp/testvenv_prompt /data/local/tmp/testproj /data/local/tmp/testproj_lib /data/local/tmp/testproj_app /data/local/tmp/test_script.py /data/local/tmp/requirements.in /data/local/tmp/requirements.txt /data/local/tmp/requirements_install.txt /data/local/tmp/test_build /data/local/tmp/.cache /data/local/tmp/.local /data/local/tmp/.python-version" 2>/dev/null || true
 
 # ===========================================================================
 # 生成测试报告

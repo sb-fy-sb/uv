@@ -2797,6 +2797,28 @@ where
     #[cfg(windows)]
     uv_windows::install_unhandled_exception_handler();
 
+    // On OHOS (OpenHarmony), the root filesystem is read-only, so `$HOME`
+    // (typically `/root`) cannot be used for cache or data storage.
+    // Redirect `HOME` to `/data/local/tmp` so XDG-based default paths
+    // (e.g., `~/.cache/uv`, `~/.local/share/uv`) resolve to writable locations.
+    // This matches the approach used by ohos-node (Node.js for OHOS).
+    #[cfg(target_env = "ohos")]
+    {
+        let home_writable = std::env::var_os(EnvVars::HOME).is_some_and(|home| {
+            let probe = std::path::PathBuf::from(&home).join(".uv_probe");
+            if std::fs::create_dir(&probe).is_ok() {
+                let _ = std::fs::remove_dir(&probe);
+                true
+            } else {
+                false
+            }
+        });
+        if !home_writable {
+            // SAFETY: Called early in main() before spawning any threads.
+            unsafe { std::env::set_var(EnvVars::HOME, "/data/local/tmp"); }
+        }
+    }
+
     // Set the `UV` variable to the current executable so it is implicitly propagated to all child
     // processes, e.g., in `uv run`.
     if let Ok(current_exe) = std::env::current_exe() {
