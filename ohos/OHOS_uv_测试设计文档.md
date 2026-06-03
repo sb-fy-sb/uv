@@ -407,8 +407,8 @@ ohos-uv-test-report-YYYYMMDD_HHMMSS.md
 |------|------|---------|
 | ~~Python 解释器发现失败~~ | ~~`sysconfig.get_platform()` 返回 "harmonyos"~~ | ✅ 已修复：`get_interpreter_info.py` 将 "harmonyos" 视为 "linux" |
 | MSYS2 路径转换错误 | Git Bash 自动转换 `/path` 为 Windows 路径 | 设置 `MSYS_NO_PATHCONV=1` |
-| Cache 初始化失败 | 默认 cache 目录不可写 | 设置 `UV_CACHE_DIR=/data/local/tmp/.uv-cache` |
-| Python 安装失败 | `/root/.local/share/uv/python` 只读 | 设置 `UV_DATA_DIR=/data/local/tmp/.uv-data` |
+| ~~Cache 初始化失败~~ | ~~默认 cache 目录不可写~~ | ✅ 已修复：`lib.rs` 在 OHOS 启动时自动将 `HOME` 重定向到 `/data/local/tmp` |
+| ~~Python 安装失败~~ | ~~`/root/.local/share/uv/python` 只读~~ | ✅ 已修复：同上，`HOME` 重定向后 XDG 路径自动指向可写分区 |
 | 命令超时 | 设备性能不足或网络慢 | 使用 `--timeout` 参数（默认 60s） |
 | PyPI 下载慢 | 国内访问 pypi.org 慢 | 自动配置 `UV_INDEX_URL` 使用 USTC 镜像 |
 | Python 下载慢 | 国内访问 GitHub 慢 | 自动配置 `UV_PYTHON_INSTALL_MIRROR` 使用 ghfast.top 镜像 |
