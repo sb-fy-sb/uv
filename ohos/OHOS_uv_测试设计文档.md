@@ -412,9 +412,9 @@ ohos-uv-test-report-YYYYMMDD_HHMMSS.md
 | 命令超时 | 设备性能不足或网络慢 | 使用 `--timeout` 参数（默认 60s） |
 | PyPI 下载慢 | 国内访问 pypi.org 慢 | 自动配置 `UV_INDEX_URL` 使用 USTC 镜像 |
 | Python 下载慢 | 国内访问 GitHub 慢 | 自动配置 `UV_PYTHON_INSTALL_MIRROR` 使用 ghfast.top 镜像 |
-| `uv python pin` 失败 | OHOS 根文件系统只读 | 已知环境限制，不影响功能 |
+| `uv python pin` 失败 | ~~OHOS 根文件系统只读~~ | ✅ 已修复：HOME 重定向后 `.python-version` 写入可写目录 |
 | `uv self update` 失败 | 手动部署的 uv 不支持自更新 | 已知环境限制 |
-| `uv build` 失败 | setuptools 构建后端不兼容 OHOS | 待修复（setuptools 平台检测问题） |
+| `uv build` 失败 | setuptools 构建后端不兼容 OHOS | ✅ 已修复：`uv-build-frontend` 在 OHOS 平台上自动注入平台兼容性桩，使 `sysconfig.get_platform()` 返回 `"linux"` |
 
 ### 7.2 调试技巧
 
@@ -464,10 +464,10 @@ bash test-uv-ohos.sh --fast --timeout 60       # 快速模式（跳过重复下�
 | 指标 | 数值 |
 |------|------|
 | 总测试用例 | 107 |
-| 通过 | 102 |
-| 失败 | 5 |
+| 通过 | 106 |
+| 失败 | 1 |
 | 跳过 | 0 |
-| 通过率 | **95.3%** |
+| 通过率 | **99.1%** |
 | 测试耗时 | ~5-6 分钟（完整模式）/ ~3 分钟（--fast 模式） |
 
 ### 9.2 功能覆盖
@@ -475,12 +475,12 @@ bash test-uv-ohos.sh --fast --timeout 60       # 快速模式（跳过重复下�
 | 模块 | 通过/总计 | 状态 | 失败根因 |
 |------|----------|------|---------|
 | A. 基础命令 | 18/19 | ⚠️ 部分失败 | A11 self update 不支持外部安装 |
-| B. Python 管理 | 7/9 | ⚠️ 部分失败 | B5 python pin 只读文件系统 |
+| B. Python 管理 | 9/9 | ✅ 全通过 | - |
 | C. 虚拟环境 + pip | 27/27 | ✅ 全通过 | - |
 | D. 项目管理 | 28/28 | ✅ 全通过 | - |
 | E. Tool 管理 | 12/12 | ✅ 全通过 | - |
 | F. Cache 管理 | 2/2 | ✅ 全通过 | - |
-| G. Build | 0/3 | ❌ 全失败 | setuptools 构建后端不兼容 OHOS |
+| G. Build | 3/3 | ✅ 全通过 | OHOS 平台兼容性桩修复 setuptools 平台检测 |
 | H. Auth 管理 | 3/3 | ✅ 全通过 | - |
 | I. Workspace | 3/3 | ✅ 全通过 | - |
 | J. Publish | 1/1 | ✅ 全通过 | - |
@@ -499,13 +499,28 @@ if operating_system in ("linux", "harmonyos"):
 
 此修复使得 Python 解释器发现正常工作，**C/D/E/I 组从全部失败变为全部通过**（+68 个用例）。
 
-**剩余 5 个失败原因**：
+**构建平台兼容性桩**：`crates/uv-build-frontend/src/lib.rs` 中在 OHOS 平台上为 PEP 517 构建脚本注入平台兼容性桩
+
+```rust
+// 仅在 OHOS 编译时注入
+#[cfg(target_env = "ohos")]
+const OHOS_PLATFORM_STUB: &str = "\
+import sysconfig as _sysconfig
+_orig_get_platform = _sysconfig.get_platform
+def _patched_get_platform():
+    return _orig_get_platform().replace('harmonyos', 'linux')
+_sysconfig.get_platform = _patched_get_platform
+// ...同时桩 distutils.util.get_platform
+";
+```
+
+此修复使得 setuptools 构建后端在 OHOS 上正常工作，**G 组从全部失败变为全部通过**（+3 个用例）。
+
+**剩余 1 个失败原因**：
 
 | 用例 | 原因 | 分类 |
 |------|------|------|
 | **A11** `self update --dry-run` | uv 通过外部方式部署，不支持自更新 | ⚠️ OHOS 环境限制 |
-| **B5** `python pin 3.12` | 写入 `/.python-version` 失败（OHOS 根文件系统只读） | ⚠️ OHOS 环境限制 |
-| **G1/G2/G3** `build` | setuptools 构建后端不兼容 OHOS 平台 | ❌ 待修复 |
 
 **其他改进**：
 - 添加国内镜像源（USTC PyPI + GitHub Python Build），下载速度提升 15x
@@ -565,3 +580,4 @@ DEVICE_EXIT_CODE=$(echo "$raw_output" | grep "__EXIT_CODE__=" | tail -1 | sed 's
 - v2.0 (2026-06-01): 扩展到 72 个测试用例，完整覆盖所有功能模块
 - v3.0 (2026-06-01): 扩展到 108 个测试用例，补充 PEP 723 脚本、PEP 751 导出、Auth、Workspace、Publish、editable 安装、代码格式化等功能
 - v4.0 (2026-06-02): 修复 harmonyos 系统识别（+68 通过），添加国内镜像源、超时控制、--fast 模式、每用例耗时显示，修复 C9c/C21/D17/D20 测试脚本 bug，总计 107 个用例，通过率 95.3%
+- v5.0 (2026-06-03): 添加 OHOS 构建平台兼容性桩（`uv-build-frontend` 注入 `sysconfig.get_platform` 桩），修复 G1/G2/G3 build 测试（+3 通过），修复测试脚本 build-backend 路径和输出目录，总计 107 个用例，通过率 99.1%

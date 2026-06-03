@@ -1,7 +1,7 @@
 ============================================================
   OHOS uv 已支持指令列表
   基于测试设计文档 v4.0 (2026-06-02)
-  总计 107 个用例，通过 102 个，通过率 95.3%
+  总计 107 个用例，通过 106 个，通过率 99.1%
 ============================================================
 
 【A. 基础命令】 18/19 通过
@@ -25,11 +25,11 @@
   ✅ uv self version
   ❌ uv self update --dry-run               ← 不支持外部部署的自更新
 
-【B. Python 管理】 7/9 通过
+【B. Python 管理】 9/9 全部通过
   ✅ uv python list
   ✅ uv python install 3.12
   ✅ uv python find
-  ❌ uv python pin 3.12                     ← OHOS 根文件系统只读
+  ✅ uv python pin 3.12
   ✅ uv python list --only-installed
   ✅ uv python list --all-versions
   ✅ uv python list --only-installed --output-format json
@@ -113,10 +113,10 @@
   ✅ uv cache prune
   ✅ uv cache clean
 
-【G. Build】 0/3 全部失败
-  ❌ uv build --sdist <path> --out-dir <dir> ← setuptools 不兼容 OHOS
-  ❌ uv build --wheel <path> --out-dir <dir> ← setuptools 不兼容 OHOS
-  ❌ uv build <path> --out-dir <dir>         ← setuptools 不兼容 OHOS
+【G. Build】 3/3 全部通过
+  ✅ uv build --sdist <path> --out-dir <dir>
+  ✅ uv build --wheel <path> --out-dir <dir>
+  ✅ uv build <path> --out-dir <dir>
 
 【H. Auth 管理】 3/3 全部通过
   ✅ uv auth login --help
@@ -132,21 +132,15 @@
   ✅ uv publish --help
 
 ============================================================
-  未支持指令汇总（5 个失败）
+  未支持指令汇总（1 个失败）
 ============================================================
 
 1. uv self update --dry-run
    原因：uv 通过外部方式部署到 OHOS，不支持自更新
 
-2. uv python pin 3.12
-   原因：写入 /.python-version 失败，OHOS 根文件系统只读
-
-3. uv build --sdist / --wheel / (all)（共 3 条）
-   原因：setuptools 构建后端不兼容 OHOS 平台，待修复
-
 ============================================================
   统计
 ============================================================
-  已通过：102 条
-  未通过：  5 条（A11, B5, G1, G2, G3）
-  通过率：95.3%
+  已通过：106 条
+  未通过：  1 条（A11）
+  通过率：99.1%

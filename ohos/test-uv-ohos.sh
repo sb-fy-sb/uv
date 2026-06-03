@@ -562,7 +562,7 @@ if $PYTHON_INSTALLED; then
     run_on_device "mkdir -p /data/local/tmp/test_build && cd /data/local/tmp/test_build && cat > pyproject.toml << 'TOML'
 [build-system]
 requires = [\"setuptools\"]
-build-backend = \"setuptools.backends._legacy:_Backend\"
+build-backend = \"setuptools.build_meta\"
 
 [project]
 name = \"test-ohos-build\"
@@ -570,12 +570,12 @@ version = \"0.1.0\"
 TOML
 mkdir -p test_ohos_build && echo 'def hello(): return \"hi\"' > test_ohos_build/__init__.py" 2>/dev/null || true
 
-    run_test "G1" "build sdist" "build --sdist /data/local/tmp/test_build --out-dir /data/local/tmp/test_build/dist" 0 || true
-    run_test "G2" "build wheel" "build --wheel /data/local/tmp/test_build --out-dir /data/local/tmp/test_build/dist" 0 || true
-    run_test "G3" "build (all)" "build /data/local/tmp/test_build --out-dir /data/local/tmp/test_build/dist2" 0 || true
+    run_test "G1" "build sdist" "build --sdist /data/local/tmp/test_build --out-dir /data/local/tmp/build_out" 0 || true
+    run_test "G2" "build wheel" "build --wheel /data/local/tmp/test_build --out-dir /data/local/tmp/build_out" 0 || true
+    run_test "G3" "build (all)" "build /data/local/tmp/test_build --out-dir /data/local/tmp/build_out2" 0 || true
 
     # 清理
-    run_on_device "rm -rf /data/local/tmp/test_build" 2>/dev/null || true
+    run_on_device "rm -rf /data/local/tmp/test_build /data/local/tmp/build_out /data/local/tmp/build_out2" 2>/dev/null || true
 else
     skip_group "Python 未安装" "G1:build sdist" "G2:build wheel" "G3:build all"
 fi
