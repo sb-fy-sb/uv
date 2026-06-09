@@ -147,7 +147,8 @@ run_verify() {
 
     # 步骤1: 执行主命令
     run_uv_with_exit "$cmd"
-    local main_output="$OUTPUT"
+    # 将换行替换为空格，防止 IFS read 解析 RESULTS 时断行
+    local main_output="${OUTPUT//$'\n'/ }"
     local main_exit="$DEVICE_EXIT_CODE"
 
     # 步骤2: 检查主命令退出码
@@ -178,7 +179,7 @@ run_verify() {
     if [[ -n "$verify_cmd" ]]; then
         log_info "    验证: $verify_cmd"
         run_verify_cmd "$verify_cmd"
-        local v_output="$VERIFY_OUTPUT"
+        local v_output="${VERIFY_OUTPUT//$'\n'/ }"
 
         # 获取验证命令退出码（从最后一行 __EXIT_CODE__ 标记提取）
         # run_verify_cmd 不自动提取退出码，需要另一种方式
@@ -188,7 +189,7 @@ run_verify() {
         verify_raw=$(timeout "$TIMEOUT" "$HDC" shell "$verify_with_exit" 2>&1) || true
         local v_exit
         v_exit=$(echo "$verify_raw" | grep "^__VX__=" | tail -1 | sed 's/^__VX__=//' | tr -d '[:space:]')
-        v_output=$(echo "$verify_raw" | grep -v "^__VX__=" | sed '/^[[:space:]]*$/d' | tr -d '\r')
+        v_output=$(echo "$verify_raw" | grep -v "^__VX__=" | sed '/^[[:space:]]*$/d' | tr -d '\r' | tr '\n' ' ')
 
         if [[ -z "$v_exit" ]]; then
             v_exit=1

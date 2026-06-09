@@ -2799,24 +2799,30 @@ where
 
     // On OHOS (OpenHarmony), the root filesystem is read-only, so `$HOME`
     // (typically `/root`) cannot be used for cache or data storage.
-    // Redirect `HOME` to `/data/local/tmp` so XDG-based default paths
-    // (e.g., `~/.cache/uv`, `~/.local/share/uv`) resolve to writable locations.
+    // Redirect `HOME` to the directory containing the uv executable
+    // (e.g., `/data/local/tmp` when uv is at `/data/local/tmp/uv`),
+    // so XDG-based default paths (e.g., `~/.cache/uv`, `~/.local/share/uv`)
+    // resolve to writable locations. This applies to all storage including
+    // Python installations, cache, and data directories.
+    //
     // This matches the approach used by ohos-node (Node.js for OHOS).
     #[cfg(target_env = "ohos")]
-    {
-        let home_writable = std::env::var_os(EnvVars::HOME).is_some_and(|home| {
-            let probe = std::path::PathBuf::from(&home).join(".uv_probe");
-            if std::fs::create_dir(&probe).is_ok() {
-                let _ = std::fs::remove_dir(&probe);
-                true
-            } else {
-                false
-            }
-        });
-        if !home_writable {
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
             // SAFETY: Called early in main() before spawning any threads.
-            unsafe { std::env::set_var(EnvVars::HOME, "/data/local/tmp"); }
+            unsafe { std::env::set_var(EnvVars::HOME, parent); }
         }
+    }
+
+    // On OHOS (OpenHarmony), libc detection via filesystem inspection
+    // (reading `/bin/sh` ELF header to find the dynamic linker) can fail
+    // in sandboxed environments (e.g., the OHOS terminal app). Since OHOS
+    // always uses musl libc, set `UV_LIBC=musl` to bypass filesystem-based
+    // detection. Only set if not already configured by the user.
+    #[cfg(target_env = "ohos")]
+    if std::env::var_os(EnvVars::UV_LIBC).is_none() {
+        // SAFETY: Called early in main() before spawning any threads.
+        unsafe { std::env::set_var(EnvVars::UV_LIBC, "musl"); }
     }
 
     // Set the `UV` variable to the current executable so it is implicitly propagated to all child

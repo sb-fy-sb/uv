@@ -1226,7 +1226,7 @@ impl PythonRunner {
 
         let _permit = self.concurrent_build_slots.acquire().await.unwrap();
 
-        let mut child = Command::new(venv.python_executable())
+        let mut child = uv_python::Interpreter::python_command_tokio(venv.python_executable())
             .args(["-c", script])
             .current_dir(source_tree.simplified())
             .envs(environment_variables)

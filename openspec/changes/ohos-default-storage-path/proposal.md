@@ -5,14 +5,15 @@
 ## 改了什么
 
 - 在 uv 启动时，检测是否为 OHOS 平台（`target_env = "ohos"`），在任何目录初始化之前执行。
-- 当运行在 OHOS 上且 `HOME` 指向不可写路径时，将 `HOME` 设置为 `/data/local/tmp`，这样所有 XDG 默认路径（`~/.cache/uv`、`~/.local/share/uv`、`~/.local/bin`）都自动指向可写分区。
+- 当运行在 OHOS 上时，将 `HOME` 设置为 uv 可执行文件所在目录（通过 `current_exe().parent()` 动态获取），这样所有 XDG 默认路径（`~/.cache/uv`、`~/.local/share/uv`、`~/.local/bin`）都自动指向可写分区。uv 所在目录默认可写，不需要额外的可写性判断。
+- 当运行在 OHOS 上且 `UV_LIBC` 未设置时，预设 `UV_LIBC=musl`，绕过沙盒环境下的文件系统 libc 检测。
 - 这个改动是透明的：已经配置了 `UV_CACHE_DIR` 或 `UV_DATA_DIR` 的用户不受影响，非 OHOS 平台的行为完全不变。
 
 ## 功能能力
 
 ### 新增能力
 
-- `ohos-storage-redirect`：在 OHOS 设备上，通过在进程启动时设置 `HOME=/data/local/tmp`，自动将 uv 的默认存储路径重定向到可写目录。
+- `ohos-storage-redirect`：在 OHOS 设备上，通过在进程启动时将 `HOME` 设置为 uv 可执行文件所在目录（动态获取），自动将 uv 的默认存储路径重定向到可写目录。
 
 ### 修改的能力
 
