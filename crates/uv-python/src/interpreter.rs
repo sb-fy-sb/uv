@@ -481,16 +481,12 @@ impl Interpreter {
     }
 
     fn python_command_impl<C: From<std::process::Command>>(interpreter: &Path) -> C {
-        #[cfg(target_env = "ohos")]
-        {
-            let mut cmd = std::process::Command::new("/lib/ld-musl-aarch64.so.1");
-            cmd.arg(interpreter);
-            cmd.into()
-        }
-        #[cfg(not(target_env = "ohos"))]
-        {
-            std::process::Command::new(interpreter).into()
-        }
+        // On OHOS, python-build-standalone provides Python as an ELF shared object.
+        // Direct execution requires the binary to be code-signed (via binary-sign-tool).
+        // We invoke the interpreter directly rather than through the musl dynamic linker,
+        // because /lib/ld-musl-aarch64.so.1 cannot be executed directly from subprocess
+        // context due to OHOS hmmac sandbox restrictions.
+        std::process::Command::new(interpreter).into()
     }
 
     /// Return the recognized native extension module suffixes for this Python interpreter.

@@ -123,3 +123,10 @@ cache-keys = [
 [tool.uv.dependency-groups]
 docs = { requires-python = ">=3.12" }
 docker = { requires-python = ">=3.12" }
+
+[tool.uv.workspace]
+members = [
+    "ohos/.uv-test-tmp/testproj",
+    "ohos/.uv-test-tmp/testproj_lib",
+    "ohos/.uv-test-tmp/testproj_app",
+]

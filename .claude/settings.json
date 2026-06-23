@@ -109,10 +109,37 @@
       "Bash(C:/ohos/sdk/llvm/bin/llvm-readelf.exe -l C:/uv-target/aarch64-unknown-linux-ohos/release/uv)",
       "Bash(C:/ohos/sdk/llvm/bin/llvm-readelf.exe -l c:/code/uv/ohos/dlopen_test_dyn)",
       "Bash(MSYS_NO_PATHCONV=1 hdc file send dlopen_test_dyn /data/app/el2/100/base/com.dingtalk.hmos.pc/dlopen_test)",
-      "Bash(MSYS_NO_PATHCONV=1 hdc shell chmod +x /data/app/el2/100/base/com.dingtalk.hmos.pc/dlopen_test)"
+      "Bash(MSYS_NO_PATHCONV=1 hdc shell chmod +x /data/app/el2/100/base/com.dingtalk.hmos.pc/dlopen_test)",
+      "WebFetch(domain:gitcode.com)",
+      "Bash(openspec status *)",
+      "Bash(ls openspec/changes/ohos-python-download/)",
+      "Bash(ls openspec/specs/)",
+      "Bash(ls openspec/specs/*/spec.md)",
+      "WebFetch(domain:gregoryszorc.com)",
+      "WebFetch(domain:gitee.com)",
+      "WebFetch(domain:harmonypc.csdn.net)",
+      "WebFetch(domain:harmonyosdev.csdn.net)",
+      "Bash(java -version)",
+      "WebFetch(domain:cloud.tencent.com)",
+      "WebFetch(domain:openeuler.csdn.net)",
+      "WebFetch(domain:ai6s.net)",
+      "WebFetch(domain:blog.csdn.net)",
+      "WebFetch(domain:blog.51cto.com)",
+      "WebFetch(domain:file-cdn.gitcode.com)",
+      "WebFetch(domain:blog.gitcode.com)",
+      "Bash(cp \"C:/code/uv\\(2\\)/uv/.cargo/config.native.toml\" \"C:/code/uv/.cargo/config.native.toml\")",
+      "Bash(cp \"C:/code/uv\\(2\\)/uv/.cargo/config.toml.bak\" \"C:/code/uv/.cargo/config.toml.bak\")",
+      "Bash(cp \"C:/code/uv\\(2\\)/uv/build_ohos.sh\" \"C:/code/uv/build_ohos.sh\")",
+      "Bash(cp \"C:/code/uv\\(2\\)/uv/ohos-native-toolchain.cmake\" \"C:/code/uv/ohos-native-toolchain.cmake\")",
+      "Bash(cp \"C:/code/uv\\(2\\)/uv/ohos/test_uv_ohos.py\" \"C:/code/uv/ohos/test_uv_ohos.py\")",
+      "Bash(cp \"C:/code/uv/.cargo/config.toml\" \"C:/code/uv/.cargo/config.toml.win-cross\")",
+      "Bash(cp \"C:/code/uv\\(2\\)/uv/.cargo/config.toml\" \"C:/code/uv/.cargo/config.toml\")",
+      "Bash(reg query *)",
+      "Bash(cp \"C:/code/uv/uv.lock\" \"C:/code/uv/uv.lock.bak\" && cp \"C:/code/uv\\(2\\)/uv/uv.lock\" \"C:/code/uv/uv.lock\" && echo \"OK: uv.lock synced\")"
     ],
     "additionalDirectories": [
-      "\\data\\local\\tmp\\.local\\share\\uv"
+      "\\data\\local\\tmp\\.local\\share\\uv",
+      "C:\\code\\uv(2)\\uv"
     ]
   },
   "hooks": {
