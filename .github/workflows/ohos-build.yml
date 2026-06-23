@@ -1,16 +1,13 @@
 # uv OHOS Build CI
 #
-# Cross-compile uv for HarmonyOS (OHOS) aarch64 on a self-hosted ARM64 runner.
-# Uses cargo incremental compilation + local persistent target dir for fast rebuilds.
+# Cross-compile uv for HarmonyOS (OHOS) aarch64 from a Windows x86_64 host.
+# Uses the OHOS SDK (LLVM + musl sysroot) for cross-compilation.
 #
 # Required runner environment:
-#   - OHOS SDK at OHOS_SDK_ROOT (see env below)
+#   - Windows x86_64 with Git Bash
+#   - OHOS SDK at C:\ohos\sdk (LLVM toolchain + musl sysroot)
 #   - Rust toolchain with aarch64-unknown-linux-ohos target
-#   - cmake, ninja
-#
-# The .cargo/config.toml in the repo targets OHOS device-native paths.
-# CI overrides linker, sysroot, and tool paths via environment variables,
-# which take precedence over config.toml entries.
+#   - cmake, ninja in PATH (or from OHOS SDK build-tools)
 
 name: OHOS Build
 
@@ -25,7 +22,6 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.cargo/**'
-      - 'ohos-native-toolchain.cmake'
       - '.github/workflows/ohos-build.yml'
   workflow_dispatch:
 
@@ -34,16 +30,18 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  OHOS_SDK_ROOT: /home/user/setup-ohos-sdk
+  OHOS_SDK: C:/ohos/sdk
   CARGO_INCREMENTAL: 1
-  CARGO_BUILD_JOBS: 2
-  CARGO_TARGET_DIR: /home/user/sources/uv/target-ohos
+  CARGO_BUILD_JOBS: 4
 
 jobs:
   build:
     name: Build uv for OHOS (aarch64)
-    runs-on: [self-hosted, Linux, ARM64]
+    runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 300
+    defaults:
+      run:
+        shell: bash
 
     steps:
       # ============================================================
@@ -53,72 +51,72 @@ jobs:
         uses: actions/checkout@v4
 
       # ============================================================
-      # 2. Caching
-      # ============================================================
-      - name: Restore cargo registry cache
-        run: |
-          CACHE=/home/user/sources/uv/.cargo/registry
-          if [ -d "$CACHE" ]; then
-            mkdir -p .cargo
-            cp -a "$CACHE" .cargo/registry 2>/dev/null || true
-            echo "✅ Copied cargo registry cache"
-          else
-            echo "⚠️  No cargo registry cache found"
-          fi
-
-      - name: Ensure incremental target dir exists
-        run: |
-          mkdir -p "$CARGO_TARGET_DIR"
-          echo "✅ CARGO_TARGET_DIR=$CARGO_TARGET_DIR"
-
-      - name: Cache cargo target (fallback)
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.CARGO_TARGET_DIR }}
-          key: ohos-cargo-target-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ohos-cargo-target-
-
-      # ============================================================
-      # 3. Environment
+      # 2. Environment
       # ============================================================
       - name: Verify runner environment
         run: |
           echo "=== Checking OHOS SDK ==="
-          test -d "$OHOS_SDK_ROOT" || { echo "❌ OHOS SDK not found at $OHOS_SDK_ROOT"; exit 1; }
-          echo "✅ OHOS SDK: $OHOS_SDK_ROOT"
+          test -d "$OHOS_SDK" || { echo "❌ OHOS SDK not found at $OHOS_SDK"; exit 1; }
+          test -x "$OHOS_SDK/llvm/bin/clang.exe" || { echo "❌ clang.exe not found"; exit 1; }
+          test -d "$OHOS_SDK/sysroot" || { echo "❌ sysroot not found"; exit 1; }
+          echo "✅ OHOS SDK: $OHOS_SDK"
 
-          echo "=== Checking Rust target ==="
+          echo "=== Checking Rust ==="
+          rustc --version
+          cargo --version
           rustc --print target-list | grep -q aarch64-unknown-linux-ohos || \
             { echo "❌ aarch64-unknown-linux-ohos target not supported"; exit 1; }
           echo "✅ Rust target: aarch64-unknown-linux-ohos"
-          rustc --version
-          cargo --version
 
           echo "=== Checking build tools ==="
-          cmake --version | head -1
-          ninja --version
+          cmake --version | head -1 || echo "⚠️  cmake not found in PATH"
+          ninja --version || echo "⚠️  ninja not found in PATH"
+          "$OHOS_SDK/llvm/bin/llvm-readelf.exe" --version 2>/dev/null | head -1 || echo "⚠️  llvm-readelf not found"
 
       - name: Setup OHOS cross-compilation environment
         run: |
-          SYSROOT="$OHOS_SDK_ROOT/ohos/native/sysroot"
-          LLVM_BIN="$OHOS_SDK_ROOT/ohos/native/llvm/bin"
+          SYSROOT="$OHOS_SDK/sysroot"
+          LLVM="$OHOS_SDK/llvm/bin"
 
-          # These env vars override the [env] and [target] entries in .cargo/config.toml
           echo "OHOS_SYSROOT=$SYSROOT" >> $GITHUB_ENV
-          echo "CC_aarch64_unknown_linux_ohos=$LLVM_BIN/clang" >> $GITHUB_ENV
+          echo "CC_aarch64_unknown_linux_ohos=$LLVM/clang.exe" >> $GITHUB_ENV
           echo "CFLAGS_aarch64_unknown_linux_ohos=--target=aarch64-linux-ohos --sysroot=$SYSROOT -D__MUSL__" >> $GITHUB_ENV
-          echo "CXX_aarch64_unknown_linux_ohos=$LLVM_BIN/clang++" >> $GITHUB_ENV
+          echo "CXX_aarch64_unknown_linux_ohos=$LLVM/clang++.exe" >> $GITHUB_ENV
           echo "CXXFLAGS_aarch64_unknown_linux_ohos=--target=aarch64-linux-ohos --sysroot=$SYSROOT -D__MUSL__" >> $GITHUB_ENV
-          echo "AR_aarch64_unknown_linux_ohos=$LLVM_BIN/llvm-ar" >> $GITHUB_ENV
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_OHOS_LINKER=$LLVM_BIN/clang" >> $GITHUB_ENV
+          echo "AR_aarch64_unknown_linux_ohos=$LLVM/llvm-ar.exe" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_OHOS_LINKER=$LLVM/clang.exe" >> $GITHUB_ENV
           echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_OHOS_RUSTFLAGS=-C link-arg=--target=aarch64-linux-ohos -C link-arg=--sysroot=$SYSROOT" >> $GITHUB_ENV
-          echo "AWS_LC_SYS_CMAKE_AR=$LLVM_BIN/llvm-ar" >> $GITHUB_ENV
-          echo "AWS_LC_SYS_CMAKE_RANLIB=$LLVM_BIN/llvm-ranlib" >> $GITHUB_ENV
+          echo "AWS_LC_SYS_CMAKE_AR=$LLVM/llvm-ar.exe" >> $GITHUB_ENV
+          echo "AWS_LC_SYS_CMAKE_RANLIB=$LLVM/llvm-ranlib.exe" >> $GITHUB_ENV
 
-          echo "✅ OHOS cross-compilation environment configured"
+          # Add OHOS SDK tools to PATH (cmake, ninja)
+          echo "$OHOS_SDK/build-tools/cmake/bin" >> $GITHUB_PATH
+
+          echo "✅ Environment configured"
           echo "   Sysroot: $SYSROOT"
-          echo "   LLVM:    $LLVM_BIN"
+          echo "   LLVM:    $LLVM"
+
+      # ============================================================
+      # 3. Caching
+      # ============================================================
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ohos-cargo-registry-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ohos-cargo-registry-
+
+      - name: Cache cargo target
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ohos-cargo-target-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ohos-cargo-target-
 
       # ============================================================
       # 4. Build
@@ -131,30 +129,35 @@ jobs:
       # ============================================================
       - name: Verify binary
         run: |
-          BIN="$CARGO_TARGET_DIR/aarch64-unknown-linux-ohos/release/uv"
+          BIN="target/aarch64-unknown-linux-ohos/release/uv"
+          READELF="$OHOS_SDK/llvm/bin/llvm-readelf.exe"
 
-          echo "=== File type ==="
-          file "$BIN"
-          file "$BIN" | grep -q "ELF.*ARM aarch64" || {
-            echo "❌ Not an ARM64 ELF binary"
-            exit 1
-          }
-          echo "✅ Valid ARM64 ELF"
+          echo "=== File info ==="
+          ls -lh "$BIN"
+          file "$BIN" 2>/dev/null || echo "(file command not available)"
 
           echo ""
-          echo "=== Size ==="
-          ls -lh "$BIN"
+          echo "=== ELF header ==="
+          "$READELF" -h "$BIN" | grep -E "Class|Machine|OS/ABI" || {
+            echo "❌ Failed to read ELF header"
+            exit 1
+          }
+          "$READELF" -h "$BIN" | grep -q "AArch64" || {
+            echo "❌ Not an AArch64 ELF binary"
+            exit 1
+          }
+          echo "✅ Valid AArch64 ELF"
 
           echo ""
           echo "=== Dynamic dependencies ==="
-          NEEDED=$(readelf -d "$BIN" | grep "NEEDED" | sed 's/.*\[//;s/\]//')
+          NEEDED=$("$READELF" -d "$BIN" | grep "NEEDED" | sed 's/.*\[//;s/\]//')
           echo "NEEDED: $NEEDED"
           for lib in $NEEDED; do
             case "$lib" in
               libc.so) echo "✅ Expected: $lib" ;;
               *)
                 echo "❌ Unexpected dynamic dependency: $lib"
-                readelf -d "$BIN" | grep "NEEDED"
+                "$READELF" -d "$BIN" | grep "NEEDED"
                 exit 1
                 ;;
             esac
@@ -167,11 +170,10 @@ jobs:
       - name: Package binary
         id: package
         run: |
-          BIN="$CARGO_TARGET_DIR/aarch64-unknown-linux-ohos/release/uv"
-          VERSION=$("$BIN" --version 2>/dev/null | head -1 || cargo metadata --format-version=1 --no-deps 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print([p['version'] for p in d['packages'] if p['name']=='uv'][0])" 2>/dev/null || echo "unknown")
+          BIN="target/aarch64-unknown-linux-ohos/release/uv"
           COMMIT=$(git rev-parse --short HEAD)
           DATE=$(date +%Y%m%d_%H%M%S)
-          NAME="uv-ohos-aarch64-${VERSION}-${COMMIT}-${DATE}"
+          NAME="uv-ohos-aarch64-${COMMIT}-${DATE}"
 
           mkdir -p /tmp/uv-release/${NAME}
           cp "$BIN" /tmp/uv-release/${NAME}/uv
@@ -179,14 +181,15 @@ jobs:
           cat > /tmp/uv-release/${NAME}/README.md << 'EOF'
           # uv for HarmonyOS (OHOS) aarch64
 
-          Cross-compiled uv binary for OpenHarmony/HarmonyOS NEXT (aarch64).
+          Cross-compiled from Windows for OpenHarmony/HarmonyOS NEXT (aarch64).
 
           ## Usage
 
-          Copy the `uv` binary to your OHOS device and run:
+          Copy the `uv` binary to your OHOS device via hdc:
 
-              chmod +x uv
-              ./uv --version
+              hdc file send uv /data/local/tmp/uv
+              hdc shell chmod +x /data/local/tmp/uv
+              hdc shell /data/local/tmp/uv --version
           EOF
 
           cd /tmp/uv-release
@@ -207,30 +210,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.package.outputs.name }}-raw
-          path: ${{ env.CARGO_TARGET_DIR }}/aarch64-unknown-linux-ohos/release/uv
+          path: target/aarch64-unknown-linux-ohos/release/uv
           retention-days: 30
-
-      # ============================================================
-      # 7. Post-build
-      # ============================================================
-      - name: Copy to shared directory
-        run: |
-          SHARE=/mnt/linux_share/ci-test
-          mkdir -p "$SHARE" 2>/dev/null || true
-          if [ -d "$SHARE" ]; then
-            BIN="$CARGO_TARGET_DIR/aarch64-unknown-linux-ohos/release/uv"
-            cp "$BIN" "$SHARE/uv-ohos-${{ steps.package.outputs.name }}.elf"
-            echo "✅ Copied to $SHARE/"
-          else
-            echo "⚠️  Shared directory not available, skipping"
-          fi
-
-      - name: Save cargo registry cache
-        if: always()
-        run: |
-          CACHE=/home/user/sources/uv/.cargo/registry
-          if [ -d .cargo/registry ]; then
-            mkdir -p "$(dirname "$CACHE")"
-            cp -a .cargo/registry "$CACHE" 2>/dev/null || true
-            echo "✅ Saved cargo registry cache"
-          fi
