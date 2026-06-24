@@ -91,6 +91,9 @@ jobs:
           "AWS_LC_SYS_CMAKE_AR=$llvm/llvm-ar.exe" >> $env:GITHUB_ENV
           "AWS_LC_SYS_CMAKE_RANLIB=$llvm/llvm-ranlib.exe" >> $env:GITHUB_ENV
 
+          # Use Windows-compatible cmake toolchain (not device-native)
+          "CMAKE_TOOLCHAIN_FILE_aarch64_unknown_linux_ohos=$env:GITHUB_WORKSPACE\ohos-windows-toolchain.cmake" >> $env:GITHUB_ENV
+
           # Add OHOS SDK cmake/ninja to PATH
           "$env:OHOS_SDK\build-tools\cmake\bin" >> $env:GITHUB_PATH
 
@@ -124,7 +127,25 @@ jobs:
       # 4. Build
       # ============================================================
       - name: Build uv
-        run: cargo build --release --target aarch64-unknown-linux-ohos -p uv
+        shell: powershell
+        run: |
+          # Rename config.toml to avoid device-native rustflags merging with CI env vars.
+          # The [target.aarch64-unknown-linux-ohos] rustflags in config.toml contain
+          # OHOS device paths that conflict with the Windows CI paths set via env vars.
+          # CARGO_TARGET_*_RUSTFLAGS env vars are merged (not replaced) with config.toml.
+          if (Test-Path ".cargo\config.toml") {
+            Rename-Item ".cargo\config.toml" ".cargo\config.toml.bak"
+            Write-Host "Renamed .cargo/config.toml to avoid device path conflicts"
+          }
+          try {
+            & cargo build --release --target aarch64-unknown-linux-ohos -p uv
+            if ($LASTEXITCODE -ne 0) { throw "cargo build failed with exit code $LASTEXITCODE" }
+          } finally {
+            if (Test-Path ".cargo\config.toml.bak") {
+              Rename-Item ".cargo\config.toml.bak" ".cargo\config.toml"
+              Write-Host "Restored .cargo/config.toml"
+            }
+          }
 
       # ============================================================
       # 5. Verify binary
