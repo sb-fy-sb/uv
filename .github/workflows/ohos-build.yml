@@ -169,7 +169,7 @@ jobs:
           Write-Host "=== ELF header ==="
           $header = & $readelf -h $bin 2>&1
           $header | Select-String "Class|Machine|OS/ABI"
-          if ($header -notmatch "AArch64") { throw "Not an AArch64 ELF binary" }
+          if (-not ($header | Select-String "AArch64")) { throw "Not an AArch64 ELF binary" }
           Write-Host "OK Valid AArch64 ELF"
 
           Write-Host ""
