@@ -133,8 +133,8 @@ jobs:
           # The [target.aarch64-unknown-linux-ohos] rustflags in config.toml contain
           # OHOS device paths that conflict with the Windows CI paths set via env vars.
           # CARGO_TARGET_*_RUSTFLAGS env vars are merged (not replaced) with config.toml.
-          $configPath = Join-Path $env:GITHUB_WORKSPACE ".cargo" "config.toml"
-          $configBak  = Join-Path $env:GITHUB_WORKSPACE ".cargo" "config.toml.ci-bak"
+          $configPath = Join-Path (Join-Path $env:GITHUB_WORKSPACE ".cargo") "config.toml"
+          $configBak  = Join-Path (Join-Path $env:GITHUB_WORKSPACE ".cargo") "config.toml.ci-bak"
           if (Test-Path $configPath) {
             Move-Item -Force $configPath $configBak
             Write-Host "Moved config.toml aside to avoid device path conflicts"
