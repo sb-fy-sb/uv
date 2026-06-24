@@ -94,6 +94,10 @@ jobs:
           # Use Windows-compatible cmake toolchain (not device-native)
           "CMAKE_TOOLCHAIN_FILE_aarch64_unknown_linux_ohos=$env:GITHUB_WORKSPACE\ohos-windows-toolchain.cmake" >> $env:GITHUB_ENV
 
+          # CMake generator: must be Ninja (not Visual Studio) for clang cross-compilation
+          "CMAKE_GENERATOR=Ninja" >> $env:GITHUB_ENV
+          "CMAKE_MAKE_PROGRAM=$env:OHOS_SDK\build-tools\cmake\bin\ninja.exe" >> $env:GITHUB_ENV
+
           # Add OHOS SDK cmake/ninja to PATH
           "$env:OHOS_SDK\build-tools\cmake\bin" >> $env:GITHUB_PATH
 
