@@ -50,7 +50,7 @@ jobs:
       # 2. Environment
       # ============================================================
       - name: Verify runner environment
-        shell: pwsh
+        shell: powershell
         run: |
           $sdk = $env:OHOS_SDK
           Write-Host "=== Checking OHOS SDK ==="
@@ -72,7 +72,7 @@ jobs:
           try { $ninjaVer = & ninja --version 2>&1; Write-Host $ninjaVer } catch { Write-Host "WARN ninja not in PATH" }
 
       - name: Setup OHOS cross-compilation environment
-        shell: pwsh
+        shell: powershell
         run: |
           $sdk = $env:OHOS_SDK -replace '\\','/'
           $sysroot = "$sdk/sysroot"
@@ -130,7 +130,7 @@ jobs:
       # 5. Verify binary
       # ============================================================
       - name: Verify binary
-        shell: pwsh
+        shell: powershell
         run: |
           $bin = "target/aarch64-unknown-linux-ohos/release/uv"
           $sdk = $env:OHOS_SDK
@@ -165,7 +165,7 @@ jobs:
       # ============================================================
       - name: Package binary
         id: package
-        shell: pwsh
+        shell: powershell
         run: |
           $bin = "target/aarch64-unknown-linux-ohos/release/uv"
           $commit = & git rev-parse --short HEAD
