@@ -4,10 +4,9 @@
 # Uses the OHOS SDK (LLVM + musl sysroot) for cross-compilation.
 #
 # Required runner environment:
-#   - Windows x86_64 with Git Bash
+#   - Windows x86_64
 #   - OHOS SDK at C:\ohos\sdk (LLVM toolchain + musl sysroot)
 #   - Rust toolchain with aarch64-unknown-linux-ohos target
-#   - cmake, ninja in PATH (or from OHOS SDK build-tools)
 
 name: OHOS Build
 
@@ -30,7 +29,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  OHOS_SDK: C:/ohos/sdk
+  OHOS_SDK: C:\ohos\sdk
   CARGO_INCREMENTAL: 1
   CARGO_BUILD_JOBS: 4
 
@@ -39,9 +38,6 @@ jobs:
     name: Build uv for OHOS (aarch64)
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 300
-    defaults:
-      run:
-        shell: C:/Program Files/Git/bin/bash.exe --noprofile --norc -e -o pipefail {0}
 
     steps:
       # ============================================================
@@ -54,47 +50,53 @@ jobs:
       # 2. Environment
       # ============================================================
       - name: Verify runner environment
+        shell: pwsh
         run: |
-          echo "=== Checking OHOS SDK ==="
-          test -d "$OHOS_SDK" || { echo "❌ OHOS SDK not found at $OHOS_SDK"; exit 1; }
-          test -x "$OHOS_SDK/llvm/bin/clang.exe" || { echo "❌ clang.exe not found"; exit 1; }
-          test -d "$OHOS_SDK/sysroot" || { echo "❌ sysroot not found"; exit 1; }
-          echo "✅ OHOS SDK: $OHOS_SDK"
+          $sdk = $env:OHOS_SDK
+          Write-Host "=== Checking OHOS SDK ==="
+          if (-not (Test-Path "$sdk\llvm\bin\clang.exe")) { throw "clang.exe not found at $sdk\llvm\bin\" }
+          if (-not (Test-Path "$sdk\sysroot")) { throw "sysroot not found at $sdk\sysroot" }
+          Write-Host "OK OHOS SDK: $sdk"
 
-          echo "=== Checking Rust ==="
-          rustc --version
-          cargo --version
-          rustc --print target-list | grep -q aarch64-unknown-linux-ohos || \
-            { echo "❌ aarch64-unknown-linux-ohos target not supported"; exit 1; }
-          echo "✅ Rust target: aarch64-unknown-linux-ohos"
+          Write-Host "=== Checking Rust ==="
+          $rustVer = & rustc --version 2>&1; Write-Host $rustVer
+          $cargoVer = & cargo --version 2>&1; Write-Host $cargoVer
+          $targets = & rustc --print target-list 2>&1
+          if ($targets -notcontains "aarch64-unknown-linux-ohos") {
+            throw "aarch64-unknown-linux-ohos target not supported"
+          }
+          Write-Host "OK Rust target: aarch64-unknown-linux-ohos"
 
-          echo "=== Checking build tools ==="
-          cmake --version | head -1 || echo "⚠️  cmake not found in PATH"
-          ninja --version || echo "⚠️  ninja not found in PATH"
-          "$OHOS_SDK/llvm/bin/llvm-readelf.exe" --version 2>/dev/null | head -1 || echo "⚠️  llvm-readelf not found"
+          Write-Host "=== Checking build tools ==="
+          try { $cmakeVer = & cmake --version 2>&1 | Select-Object -First 1; Write-Host $cmakeVer } catch { Write-Host "WARN cmake not in PATH" }
+          try { $ninjaVer = & ninja --version 2>&1; Write-Host $ninjaVer } catch { Write-Host "WARN ninja not in PATH" }
 
       - name: Setup OHOS cross-compilation environment
+        shell: pwsh
         run: |
-          SYSROOT="$OHOS_SDK/sysroot"
-          LLVM="$OHOS_SDK/llvm/bin"
+          $sdk = $env:OHOS_SDK -replace '\\','/'
+          $sysroot = "$sdk/sysroot"
+          $llvm = "$sdk/llvm/bin"
+          $target = "aarch64-linux-ohos"
 
-          echo "OHOS_SYSROOT=$SYSROOT" >> $GITHUB_ENV
-          echo "CC_aarch64_unknown_linux_ohos=$LLVM/clang.exe" >> $GITHUB_ENV
-          echo "CFLAGS_aarch64_unknown_linux_ohos=--target=aarch64-linux-ohos --sysroot=$SYSROOT -D__MUSL__" >> $GITHUB_ENV
-          echo "CXX_aarch64_unknown_linux_ohos=$LLVM/clang++.exe" >> $GITHUB_ENV
-          echo "CXXFLAGS_aarch64_unknown_linux_ohos=--target=aarch64-linux-ohos --sysroot=$SYSROOT -D__MUSL__" >> $GITHUB_ENV
-          echo "AR_aarch64_unknown_linux_ohos=$LLVM/llvm-ar.exe" >> $GITHUB_ENV
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_OHOS_LINKER=$LLVM/clang.exe" >> $GITHUB_ENV
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_OHOS_RUSTFLAGS=-C link-arg=--target=aarch64-linux-ohos -C link-arg=--sysroot=$SYSROOT" >> $GITHUB_ENV
-          echo "AWS_LC_SYS_CMAKE_AR=$LLVM/llvm-ar.exe" >> $GITHUB_ENV
-          echo "AWS_LC_SYS_CMAKE_RANLIB=$LLVM/llvm-ranlib.exe" >> $GITHUB_ENV
+          # Set env vars (override .cargo/config.toml device paths)
+          "OHOS_SYSROOT=$sysroot" >> $env:GITHUB_ENV
+          "CC_aarch64_unknown_linux_ohos=$llvm/clang.exe" >> $env:GITHUB_ENV
+          "CFLAGS_aarch64_unknown_linux_ohos=--target=$target --sysroot=$sysroot -D__MUSL__" >> $env:GITHUB_ENV
+          "CXX_aarch64_unknown_linux_ohos=$llvm/clang++.exe" >> $env:GITHUB_ENV
+          "CXXFLAGS_aarch64_unknown_linux_ohos=--target=$target --sysroot=$sysroot -D__MUSL__" >> $env:GITHUB_ENV
+          "AR_aarch64_unknown_linux_ohos=$llvm/llvm-ar.exe" >> $env:GITHUB_ENV
+          "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_OHOS_LINKER=$llvm/clang.exe" >> $env:GITHUB_ENV
+          "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_OHOS_RUSTFLAGS=-C link-arg=--target=$target -C link-arg=--sysroot=$sysroot" >> $env:GITHUB_ENV
+          "AWS_LC_SYS_CMAKE_AR=$llvm/llvm-ar.exe" >> $env:GITHUB_ENV
+          "AWS_LC_SYS_CMAKE_RANLIB=$llvm/llvm-ranlib.exe" >> $env:GITHUB_ENV
 
-          # Add OHOS SDK tools to PATH (cmake, ninja)
-          echo "$OHOS_SDK/build-tools/cmake/bin" >> $GITHUB_PATH
+          # Add OHOS SDK cmake/ninja to PATH
+          "$env:OHOS_SDK\build-tools\cmake\bin" >> $env:GITHUB_PATH
 
-          echo "✅ Environment configured"
-          echo "   Sysroot: $SYSROOT"
-          echo "   LLVM:    $LLVM"
+          Write-Host "OK Environment configured"
+          Write-Host "   Sysroot: $sysroot"
+          Write-Host "   LLVM:    $llvm"
 
       # ============================================================
       # 3. Caching
@@ -128,76 +130,72 @@ jobs:
       # 5. Verify binary
       # ============================================================
       - name: Verify binary
+        shell: pwsh
         run: |
-          BIN="target/aarch64-unknown-linux-ohos/release/uv"
-          READELF="$OHOS_SDK/llvm/bin/llvm-readelf.exe"
+          $bin = "target/aarch64-unknown-linux-ohos/release/uv"
+          $sdk = $env:OHOS_SDK
+          $readelf = "$sdk\llvm\bin\llvm-readelf.exe"
 
-          echo "=== File info ==="
-          ls -lh "$BIN"
-          file "$BIN" 2>/dev/null || echo "(file command not available)"
+          Write-Host "=== File info ==="
+          Get-Item $bin | Select-Object Name, Length, LastWriteTime | Format-List
 
-          echo ""
-          echo "=== ELF header ==="
-          "$READELF" -h "$BIN" | grep -E "Class|Machine|OS/ABI" || {
-            echo "❌ Failed to read ELF header"
-            exit 1
+          Write-Host "=== ELF header ==="
+          $header = & $readelf -h $bin 2>&1
+          $header | Select-String "Class|Machine|OS/ABI"
+          if ($header -notmatch "AArch64") { throw "Not an AArch64 ELF binary" }
+          Write-Host "OK Valid AArch64 ELF"
+
+          Write-Host ""
+          Write-Host "=== Dynamic dependencies ==="
+          $dynamic = & $readelf -d $bin 2>&1
+          $needed = $dynamic | Select-String "NEEDED" | ForEach-Object { $_ -replace '.*\[(.*)\].*','$1' }
+          Write-Host "NEEDED: $needed"
+          foreach ($lib in $needed) {
+            if ($lib -eq "libc.so") {
+              Write-Host "OK Expected: $lib"
+            } else {
+              $dynamic | Select-String "NEEDED"
+              throw "Unexpected dynamic dependency: $lib"
+            }
           }
-          "$READELF" -h "$BIN" | grep -q "AArch64" || {
-            echo "❌ Not an AArch64 ELF binary"
-            exit 1
-          }
-          echo "✅ Valid AArch64 ELF"
-
-          echo ""
-          echo "=== Dynamic dependencies ==="
-          NEEDED=$("$READELF" -d "$BIN" | grep "NEEDED" | sed 's/.*\[//;s/\]//')
-          echo "NEEDED: $NEEDED"
-          for lib in $NEEDED; do
-            case "$lib" in
-              libc.so) echo "✅ Expected: $lib" ;;
-              *)
-                echo "❌ Unexpected dynamic dependency: $lib"
-                "$READELF" -d "$BIN" | grep "NEEDED"
-                exit 1
-                ;;
-            esac
-          done
-          echo "✅ Binary validation passed"
+          Write-Host "OK Binary validation passed"
 
       # ============================================================
       # 6. Package & upload
       # ============================================================
       - name: Package binary
         id: package
+        shell: pwsh
         run: |
-          BIN="target/aarch64-unknown-linux-ohos/release/uv"
-          COMMIT=$(git rev-parse --short HEAD)
-          DATE=$(date +%Y%m%d_%H%M%S)
-          NAME="uv-ohos-aarch64-${COMMIT}-${DATE}"
+          $bin = "target/aarch64-unknown-linux-ohos/release/uv"
+          $commit = & git rev-parse --short HEAD
+          $date = Get-Date -Format "yyyyMMdd_HHmmss"
+          $name = "uv-ohos-aarch64-$commit-$date"
 
-          mkdir -p /tmp/uv-release/${NAME}
-          cp "$BIN" /tmp/uv-release/${NAME}/uv
+          $releaseDir = "$env:TEMP\uv-release\$name"
+          New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+          Copy-Item $bin "$releaseDir\uv"
 
-          cat > /tmp/uv-release/${NAME}/README.md << 'EOF'
+          @"
           # uv for HarmonyOS (OHOS) aarch64
 
           Cross-compiled from Windows for OpenHarmony/HarmonyOS NEXT (aarch64).
 
           ## Usage
 
-          Copy the `uv` binary to your OHOS device via hdc:
+          Copy the uv binary to your OHOS device via hdc:
 
               hdc file send uv /data/local/tmp/uv
               hdc shell chmod +x /data/local/tmp/uv
               hdc shell /data/local/tmp/uv --version
-          EOF
+          "@ | Set-Content "$releaseDir\README.md"
 
-          cd /tmp/uv-release
-          tar czf ${NAME}.tar.gz ${NAME}/
+          Set-Location "$env:TEMP\uv-release"
+          & tar czf "$name.tar.gz" $name
 
-          echo "name=${NAME}" >> $GITHUB_OUTPUT
-          echo "path=/tmp/uv-release/${NAME}.tar.gz" >> $GITHUB_OUTPUT
-          echo "✅ Packaged: ${NAME}.tar.gz"
+          "name=$name" >> $env:GITHUB_OUTPUT
+          "path=$env:TEMP\uv-release\$name.tar.gz" >> $env:GITHUB_OUTPUT
+          Write-Host "OK Packaged: $name.tar.gz"
 
       - name: Upload artifact (tar.gz)
         uses: actions/upload-artifact@v4
