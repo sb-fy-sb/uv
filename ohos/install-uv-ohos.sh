@@ -199,11 +199,40 @@ install_binary() {
     info "设置可执行权限..."
     chmod +x "$target_path"
 
+    # OHOS/HarmonyOS ELF 签名：部分设备需要签名后才能执行
+    # 尝试使用 Rust 工具链自带的签名工具（如果已安装）
+    if [ -n "$OHOS_BINARY_SIGN_TOOL" ] && [ -x "$OHOS_BINARY_SIGN_TOOL" ]; then
+        info "使用签名工具签名: $OHOS_BINARY_SIGN_TOOL"
+        "$OHOS_BINARY_SIGN_TOOL" "$target_path" 2>/dev/null && ok "签名完成" || warn "签名失败，尝试继续..."
+    elif command -v binary-sign-tool >/dev/null 2>&1; then
+        info "使用 binary-sign-tool 签名..."
+        binary-sign-tool "$target_path" 2>/dev/null && ok "签名完成" || warn "签名失败，尝试继续..."
+    else
+        # 查找常见签名工具路径
+        for sign_tool in \
+            "$HOME"/usr/rust-*/tool/binary-sign-tool \
+            /data/local/tmp/rust-*/tool/binary-sign-tool \
+            /storage/Users/currentUser/usr/rust-*/tool/binary-sign-tool; do
+            if [ -x "$sign_tool" ]; then
+                info "使用签名工具签名: $sign_tool"
+                "$sign_tool" "$target_path" 2>/dev/null && ok "签名完成" || warn "签名失败，尝试继续..."
+                break
+            fi
+        done
+    fi
+
     # 首次运行确认（OHOS ELF 签名机制可能需要）
     info "验证安装..."
     ver=$("$target_path" --version 2>&1) || {
         fail "uv 无法运行: $ver"
-        fail "可能需要手动签名或检查权限"
+        fail ""
+        fail "OHOS 需要对 ELF 二进制进行签名后才能执行。"
+        fail "如果你已安装 Rust 工具链，请运行："
+        fail ""
+        fail "  \$OHOS_BINARY_SIGN_TOOL $target_path"
+        fail ""
+        fail "或查找签名工具："
+        fail "  find \$HOME/usr -name binary-sign-tool"
         exit 1
     }
 
