@@ -112,7 +112,7 @@ CI 会自动构建、验证、并创建版本化 Release（`ohos-YYYYMMDD`），
 无需 Windows 电脑，在 OHOS 设备终端中直接执行（国内镜像加速）：
 
 ```sh
-/bin/sh -c "$(curl -fsSL https://mirror.ghproxy.com/https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/install-uv-ohos.sh)"
+/bin/sh -c "$(curl -fsSL https://ghfast.top/https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/install-uv-ohos.sh)"
 ```
 
 脚本会自动通过国内镜像下载最新构建的 uv 二进制并安装到 `/storage/Users/currentUser/usr/uv`。
@@ -131,7 +131,7 @@ CI 会自动构建、验证、并创建版本化 Release（`ohos-YYYYMMDD`），
 
 ```sh
 mkdir -p /storage/Users/currentUser/usr/uv
-curl -fSL -o /storage/Users/currentUser/usr/uv/uv https://mirror.ghproxy.com/https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/uv-ohos-aarch64
+curl -fSL -o /storage/Users/currentUser/usr/uv/uv https://ghfast.top/https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/uv-ohos-aarch64
 chmod +x /storage/Users/currentUser/usr/uv/uv
 /storage/Users/currentUser/usr/uv/uv --version
 ```
