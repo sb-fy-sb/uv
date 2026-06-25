@@ -45,6 +45,8 @@ jobs:
     name: Build uv for OHOS (aarch64)
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 300
+    permissions:
+      contents: write
 
     steps:
       # ============================================================
