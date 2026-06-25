@@ -13,7 +13,9 @@ name: OHOS Build
 on:
   push:
     branches:
+      - main
       - ohos-aarch64
+      - ohos-release
       - claude/ohos-*
     paths:
       - 'crates/**/*.rs'
