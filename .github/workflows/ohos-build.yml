@@ -221,9 +221,9 @@ jobs:
 
           Copy the uv binary to your OHOS device via hdc:
 
-              hdc file send uv /data/local/tmp/uv
-              hdc shell chmod +x /data/local/tmp/uv
-              hdc shell /data/local/tmp/uv --version
+              hdc file send uv /storage/Users/currentUser/usr/uv/uv
+              hdc shell chmod +x /storage/Users/currentUser/usr/uv/uv
+              hdc shell /storage/Users/currentUser/usr/uv/uv --version
           "@ | Set-Content "$releaseDir\README.md"
 
           Set-Location "$env:TEMP\uv-release"
@@ -283,12 +283,13 @@ jobs:
             **Commit**: `${{ github.sha }}` (`${{ steps.release.outputs.commit }}`)
             **Build**: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-            ## 安装
+            ## 安装（国内镜像）
 
             ```sh
-            curl -fSL -o /data/local/tmp/uv https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.versioned_tag }}/uv-ohos-aarch64
-            chmod +x /data/local/tmp/uv
-            /data/local/tmp/uv --version
+            mkdir -p /storage/Users/currentUser/usr/uv
+            curl -fSL -o /storage/Users/currentUser/usr/uv/uv https://mirror.ghproxy.com/https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.versioned_tag }}/uv-ohos-aarch64
+            chmod +x /storage/Users/currentUser/usr/uv/uv
+            /storage/Users/currentUser/usr/uv/uv --version
             ```
           files: |
             ${{ env.assets }}/uv-ohos-aarch64
@@ -333,18 +334,19 @@ jobs:
             **Commit**: `${{ github.sha }}`
             **Build**: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-            ## 一键安装
+            ## 一键安装（国内镜像）
 
             ```sh
-            /bin/sh -c "$(curl -fsSL https://github.com/${{ github.repository }}/releases/download/ohos-latest/install-uv-ohos.sh)"
+            /bin/sh -c "$(curl -fsSL https://mirror.ghproxy.com/https://github.com/${{ github.repository }}/releases/download/ohos-latest/install-uv-ohos.sh)"
             ```
 
             ## 手动下载
 
             ```sh
-            curl -fSL -o /data/local/tmp/uv https://github.com/${{ github.repository }}/releases/download/ohos-latest/uv-ohos-aarch64
-            chmod +x /data/local/tmp/uv
-            /data/local/tmp/uv --version
+            mkdir -p /storage/Users/currentUser/usr/uv
+            curl -fSL -o /storage/Users/currentUser/usr/uv/uv https://mirror.ghproxy.com/https://github.com/${{ github.repository }}/releases/download/ohos-latest/uv-ohos-aarch64
+            chmod +x /storage/Users/currentUser/usr/uv/uv
+            /storage/Users/currentUser/usr/uv/uv --version
             ```
           files: |
             ${{ env.assets }}/uv-ohos-aarch64

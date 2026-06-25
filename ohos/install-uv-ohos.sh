@@ -1,17 +1,32 @@
 #!/bin/sh
 # uv for HarmonyOS (OHOS) 一键安装脚本
-# 用法: /bin/sh -c "$(curl -fsSL https://github.com/sb-fy-sb/uv/releases/latest/download/install-uv-ohos.sh)"
 #
-# 支持自定义安装目录:
-#   INSTALL_DIR=/path/to/dir /bin/sh -c "$(curl -fsSL ...)"
+# 用法（国内镜像）:
+#   /bin/sh -c "$(curl -fsSL https://mirror.ghproxy.com/https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/install-uv-ohos.sh)"
+#
+# 用法（直连 GitHub）:
+#   /bin/sh -c "$(curl -fsSL https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/install-uv-ohos.sh)"
+#
+# 自定义安装目录:
+#   INSTALL_DIR=/your/path /bin/sh -c "$(curl -fsSL ...)"
 
 set -e
 
 # ── 配置 ──────────────────────────────────────────────
 REPO="sb-fy-sb/uv"
 BINARY_NAME="uv-ohos-aarch64"
-INSTALL_DIR="${INSTALL_DIR:-/data/local/tmp}"
-RELEASE_API="https://api.github.com/repos/${REPO}/releases/latest"
+INSTALL_DIR="${INSTALL_DIR:-/storage/Users/currentUser/usr/uv}"
+RELEASE_TAG="ohos-latest"
+
+# GitHub 直连地址
+GITHUB_BASE="https://github.com/${REPO}/releases/download/${RELEASE_TAG}"
+GITHUB_API="https://api.github.com/repos/${REPO}/releases/tags/${RELEASE_TAG}"
+
+# 国内镜像代理（按优先级排列）
+MIRRORS="
+https://mirror.ghproxy.com/
+https://ghproxy.net/
+"
 
 CACERT="/etc/ssl/certs/cacert.pem"
 
@@ -27,6 +42,68 @@ info()  { printf "${CYAN}==> ${NC}%s\n" "$1"; }
 warn()  { printf "${YELLOW}==> ${NC}%s\n" "$1"; }
 ok()    { printf "${GREEN}==> ${NC}%s\n" "$1"; }
 fail()  { printf "${RED}==> ${NC}%s\n" "$1"; }
+
+# ── 网络请求封装 ──────────────────────────────────────
+# 尝试 curl，自动处理证书问题
+_do_curl() {
+    url="$1"
+    output="$2"  # 可选：输出文件路径
+
+    if [ -n "$output" ]; then
+        if [ -f "$CACERT" ]; then
+            curl -fSL --cacert "$CACERT" --retry 2 --connect-timeout 15 -o "$output" "$url" 2>/dev/null && return 0
+        fi
+        curl -fSL -k --retry 2 --connect-timeout 15 -o "$output" "$url" 2>/dev/null && return 0
+    else
+        if [ -f "$CACERT" ]; then
+            curl -fsSL --cacert "$CACERT" --connect-timeout 15 "$url" 2>/dev/null && return 0
+        fi
+        curl -fsSL -k --connect-timeout 15 "$url" 2>/dev/null && return 0
+    fi
+    return 1
+}
+
+# 带镜像回退的下载：先尝试镜像，最后回退到 GitHub 直连
+download_with_fallback() {
+    github_url="$1"
+    output="$2"
+
+    # 先尝试各镜像
+    for mirror in $MIRRORS; do
+        mirror_url="${mirror}${github_url}"
+        info "尝试镜像: ${mirror%%/}"
+        if _do_curl "$mirror_url" "$output"; then
+            ok "镜像下载成功"
+            return 0
+        fi
+        warn "镜像失败: ${mirror%%/}"
+    done
+
+    # 回退到 GitHub 直连
+    info "尝试 GitHub 直连..."
+    if _do_curl "$github_url" "$output"; then
+        ok "直连下载成功"
+        return 0
+    fi
+
+    return 1
+}
+
+# 获取文本内容（用于 API 调用），带镜像回退
+fetch_text_with_fallback() {
+    github_url="$1"
+
+    # 先尝试 GitHub 直连（API 不一定有镜像）
+    result=$(_do_curl "$github_url" "") && { echo "$result"; return 0; }
+
+    # 尝试镜像代理
+    for mirror in $MIRRORS; do
+        mirror_url="${mirror}${github_url}"
+        result=$(_do_curl "$mirror_url" "") && { echo "$result"; return 0; }
+    done
+
+    return 1
+}
 
 # ── 前置检查 ──────────────────────────────────────────
 check_prereqs() {
@@ -52,8 +129,7 @@ check_prereqs() {
 
     touch "$INSTALL_DIR/.uv_write_test" 2>/dev/null && rm -f "$INSTALL_DIR/.uv_write_test" || {
         fail "安装目录不可写: $INSTALL_DIR"
-        fail "请通过 INSTALL_DIR 环境变量指定可写目录，例如："
-        fail "  INSTALL_DIR=/data/local/tmp /bin/sh -c \"\$(curl -fsSL ...)\""
+        fail "请通过 INSTALL_DIR 环境变量指定可写目录"
         exit 1
     }
 }
@@ -62,37 +138,27 @@ check_prereqs() {
 get_latest_version() {
     info "查询最新版本..."
 
-    # 尝试带证书请求
-    release_json=""
-    if [ -f "$CACERT" ]; then
-        release_json=$(curl -fsSL --cacert "$CACERT" "$RELEASE_API" 2>/dev/null) || true
-    fi
-
-    # 回退：跳过证书验证
-    if [ -z "$release_json" ]; then
-        release_json=$(curl -fsSL -k "$RELEASE_API" 2>/dev/null) || true
-    fi
-
-    if [ -z "$release_json" ]; then
+    release_json=$(fetch_text_with_fallback "$GITHUB_API") || {
         fail "无法获取版本信息，请检查网络连接"
         fail "或手动下载: https://github.com/${REPO}/releases"
         exit 1
-    fi
+    }
 
     # 提取 tag_name
     TAG=$(echo "$release_json" | grep -m1 '"tag_name"' | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 
     if [ -z "$TAG" ]; then
-        fail "无法解析版本号"
-        exit 1
+        # API 失败时使用默认 tag
+        TAG="$RELEASE_TAG"
+        warn "无法解析版本号，使用默认标签: $TAG"
+    else
+        ok "最新版本: $TAG"
     fi
-
-    ok "最新版本: $TAG"
 }
 
 # ── 下载 ──────────────────────────────────────────────
 download() {
-    download_url="https://github.com/${REPO}/releases/download/${TAG}/${BINARY_NAME}"
+    download_url="${GITHUB_BASE}/${BINARY_NAME}"
     target_path="${INSTALL_DIR}/uv"
 
     # 检查是否已存在
@@ -107,37 +173,22 @@ download() {
         esac
     fi
 
-    info "下载 uv ${TAG} (OHOS aarch64)..."
+    info "下载 uv (OHOS aarch64)..."
 
     # 下载到临时文件
     tmp_file="${INSTALL_DIR}/.uv_downloading"
 
-    if [ -f "$CACERT" ]; then
-        if curl -fSL --cacert "$CACERT" --retry 3 --connect-timeout 30 -o "$tmp_file" "$download_url"; then
-            ok "下载完成"
-        else
-            warn "首次下载失败，尝试跳过证书验证..."
-            curl -fSL -k --retry 3 --connect-timeout 30 -o "$tmp_file" "$download_url" || {
-                rm -f "$tmp_file"
-                fail "下载失败"
-                fail "  URL: $download_url"
-                fail "请检查网络或手动下载"
-                exit 1
-            }
-            ok "下载完成"
-        fi
+    if download_with_fallback "$download_url" "$tmp_file"; then
+        mv "$tmp_file" "$target_path"
     else
-        curl -fSL -k --retry 3 --connect-timeout 30 -o "$tmp_file" "$download_url" || {
-            rm -f "$tmp_file"
-            fail "下载失败"
-            fail "  URL: $download_url"
-            exit 1
-        }
-        ok "下载完成"
+        rm -f "$tmp_file"
+        fail "下载失败，所有镜像和直连均不可用"
+        fail "  URL: $download_url"
+        fail ""
+        fail "手动下载命令："
+        fail "  curl -fSL -o ${target_path} https://mirror.ghproxy.com/${download_url}"
+        exit 1
     fi
-
-    # 移动到最终位置
-    mv "$tmp_file" "$target_path"
 }
 
 # ── 安装 ──────────────────────────────────────────────
@@ -175,15 +226,11 @@ print_success() {
     printf "    ${YELLOW}${target_path} pip install requests${NC}\n"
     echo ""
 
-    # 如果不在 PATH 中，提示创建符号链接或添加 PATH
+    # 如果不在 PATH 中，提示添加到 PATH
     if ! command -v uv >/dev/null 2>&1; then
         printf "  ${BOLD}添加到 PATH（可选）：${NC}\n"
         echo ""
         printf "    ${YELLOW}export PATH=\"${INSTALL_DIR}:\$PATH\"${NC}\n"
-        echo ""
-        printf "  或创建符号链接：\n"
-        echo ""
-        printf "    ${YELLOW}ln -sf ${target_path} /data/local/tmp/bin/uv${NC}\n"
         echo ""
     fi
 

@@ -109,30 +109,31 @@ CI 会自动构建、验证、并创建版本化 Release（`ohos-YYYYMMDD`），
 
 ### 一键安装（在 OHOS 设备上直接运行）
 
-无需 Windows 电脑，在 OHOS 设备终端中直接执行：
+无需 Windows 电脑，在 OHOS 设备终端中直接执行（国内镜像加速）：
 
 ```sh
-/bin/sh -c "$(curl -fsSL https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/install-uv-ohos.sh)"
+/bin/sh -c "$(curl -fsSL https://mirror.ghproxy.com/https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/install-uv-ohos.sh)"
 ```
 
-脚本会自动下载最新构建的 uv 二进制并安装到 `/data/local/tmp/uv`。
+脚本会自动通过国内镜像下载最新构建的 uv 二进制并安装到 `/storage/Users/currentUser/usr/uv`。
 
 安装后验证：
 
 ```sh
-/data/local/tmp/uv --version
+/storage/Users/currentUser/usr/uv/uv --version
 ```
 
 > 也可自定义安装目录：`INSTALL_DIR=/your/path /bin/sh -c "$(curl -fsSL ...)"`
 
 #### 手动下载安装
 
-如果不方便使用一键安装脚本，也可手动下载：
+如果不方便使用一键安装脚本，也可手动下载（通过镜像代理）：
 
 ```sh
-curl -fSL -o /data/local/tmp/uv https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/uv-ohos-aarch64
-chmod +x /data/local/tmp/uv
-/data/local/tmp/uv --version
+mkdir -p /storage/Users/currentUser/usr/uv
+curl -fSL -o /storage/Users/currentUser/usr/uv/uv https://mirror.ghproxy.com/https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/uv-ohos-aarch64
+chmod +x /storage/Users/currentUser/usr/uv/uv
+/storage/Users/currentUser/usr/uv/uv --version
 ```
 
 ---
@@ -256,14 +257,14 @@ cargo build --release --target aarch64-unknown-linux-ohos -p uv \
 使用 `hdc`（HarmonyOS Device Connector）将构建产物推送到 OHOS 设备：
 
 ```bash
-# 发送二进制到设备（推荐放在 /data/local/tmp，该目录可读写）
-hdc file send uv /data/local/tmp/uv
+# 发送二进制到设备
+hdc file send uv /storage/Users/currentUser/usr/uv/uv
 
 # 设置可执行权限
-hdc shell chmod +x /data/local/tmp/uv
+hdc shell chmod +x /storage/Users/currentUser/usr/uv/uv
 
 # 验证
-hdc shell /data/local/tmp/uv --version
+hdc shell /storage/Users/currentUser/usr/uv/uv --version
 ```
 
 > **注意**: 使用 Git Bash (MSYS2) 时，需设置 `MSYS_NO_PATHCONV=1` 防止路径转换问题。
@@ -274,9 +275,9 @@ hdc shell /data/local/tmp/uv --version
 
 ```bash
 # uv 自动将 HOME 重定向到可执行文件所在目录，无需手动设置环境变量
-hdc shell /data/local/tmp/uv python install 3.12
-hdc shell /data/local/tmp/uv venv /data/local/tmp/myenv
-hdc shell /data/local/tmp/uv pip install requests
+hdc shell /storage/Users/currentUser/usr/uv/uv python install 3.12
+hdc shell /storage/Users/currentUser/usr/uv/uv venv /storage/Users/currentUser/myenv
+hdc shell /storage/Users/currentUser/usr/uv/uv pip install requests
 ```
 
 ---
