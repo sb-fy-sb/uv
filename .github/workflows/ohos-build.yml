@@ -3,6 +3,11 @@
 # Cross-compile uv for HarmonyOS (OHOS) aarch64 from a Windows x86_64 host.
 # Uses the OHOS SDK (LLVM + musl sysroot) for cross-compilation.
 #
+# Branch model:
+#   ohos-aarch64    — CI builds: verify compilation, upload Artifacts (30 days)
+#   ohos-release    — Release builds: CI + upload to GitHub Release (versioned + rolling)
+#   claude/ohos-*   — Development builds: CI only
+#
 # Required runner environment:
 #   - Windows x86_64
 #   - OHOS SDK at C:\ohos\sdk (LLVM toolchain + musl sysroot)
@@ -14,6 +19,7 @@ on:
   push:
     branches:
       - ohos-aarch64
+      - ohos-release
       - claude/ohos-*
     paths:
       - 'crates/**/*.rs'
@@ -22,6 +28,7 @@ on:
       - 'Cargo.lock'
       - '.cargo/**'
       - '.github/workflows/ohos-build.yml'
+      - 'ohos/install-uv-ohos.sh'
   workflow_dispatch:
 
 concurrency:
@@ -237,3 +244,111 @@ jobs:
           name: ${{ steps.package.outputs.name }}-raw
           path: target/aarch64-unknown-linux-ohos/release/uv
           retention-days: 30
+
+      # ============================================================
+      # 7. GitHub Release (only on ohos-release branch)
+      # ============================================================
+      - name: Prepare release assets
+        if: github.ref_name == 'ohos-release'
+        id: release
+        shell: powershell
+        run: |
+          $releaseAssets = "$env:TEMP\uv-release-assets"
+          New-Item -ItemType Directory -Path $releaseAssets -Force | Out-Null
+
+          # Versioned tag: ohos-YYYYMMDD
+          $date = Get-Date -Format "yyyyMMdd"
+          $versionedTag = "ohos-$date"
+          $commit = & git rev-parse --short HEAD
+
+          Copy-Item "target/aarch64-unknown-linux-ohos/release/uv" "$releaseAssets\uv-ohos-aarch64"
+          Copy-Item "ohos/install-uv-ohos.sh" "$releaseAssets\install-uv-ohos.sh"
+
+          "assets=$releaseAssets" >> $env:GITHUB_ENV
+          "versioned_tag=$versionedTag" >> $env:GITHUB_OUTPUT
+          "commit=$commit" >> $env:GITHUB_OUTPUT
+          Write-Host "OK Release assets prepared, tag: $versionedTag"
+
+      - name: Upload versioned release
+        if: github.ref_name == 'ohos-release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.versioned_tag }}
+          name: "OHOS aarch64 ${{ steps.release.outputs.versioned_tag }}"
+          body: |
+            uv for OpenHarmony / HarmonyOS NEXT (aarch64).
+
+            **Commit**: `${{ github.sha }}` (`${{ steps.release.outputs.commit }}`)
+            **Build**: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            ## 安装
+
+            ```sh
+            curl -fSL -o /data/local/tmp/uv https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.versioned_tag }}/uv-ohos-aarch64
+            chmod +x /data/local/tmp/uv
+            /data/local/tmp/uv --version
+            ```
+          files: |
+            ${{ env.assets }}/uv-ohos-aarch64
+            ${{ env.assets }}/install-uv-ohos.sh
+          fail_on_unmatched_files: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clean up old ohos-latest assets
+        if: github.ref_name == 'ohos-release'
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          try {
+            $existing = & gh release view ohos-latest --json assets --jq ".assets[].name" 2>&1
+            if ($LASTEXITCODE -eq 0 -and $existing) {
+              Write-Host "Removing old ohos-latest assets..."
+              $existing -split "`n" | ForEach-Object {
+                $asset = $_.Trim()
+                if ($asset) {
+                  & gh release delete-asset ohos-latest $asset --yes 2>&1 | Out-Null
+                }
+              }
+              Write-Host "OK Old assets removed"
+            }
+          } catch {
+            Write-Host "WARN Could not clean old assets: $_"
+          }
+
+      - name: Update ohos-latest (rolling tag for one-click install)
+        if: github.ref_name == 'ohos-release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ohos-latest
+          name: "OHOS aarch64 (latest)"
+          body: |
+            Rolling release — always points to the newest OHOS build.
+
+            **Version**: `${{ steps.release.outputs.versioned_tag }}`
+            **Commit**: `${{ github.sha }}`
+            **Build**: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            ## 一键安装
+
+            ```sh
+            /bin/sh -c "$(curl -fsSL https://github.com/${{ github.repository }}/releases/download/ohos-latest/install-uv-ohos.sh)"
+            ```
+
+            ## 手动下载
+
+            ```sh
+            curl -fSL -o /data/local/tmp/uv https://github.com/${{ github.repository }}/releases/download/ohos-latest/uv-ohos-aarch64
+            chmod +x /data/local/tmp/uv
+            /data/local/tmp/uv --version
+            ```
+          files: |
+            ${{ env.assets }}/uv-ohos-aarch64
+            ${{ env.assets }}/install-uv-ohos.sh
+          fail_on_unmatched_files: false
+          prerelease: true
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
