@@ -197,6 +197,65 @@ jobs:
           Write-Host "OK Binary validation passed"
 
       # ============================================================
+      # 5.5. Sign binary (OHOS ELF code signing)
+      # ============================================================
+      - name: Sign binary
+        shell: powershell
+        run: |
+          $bin = "target/aarch64-unknown-linux-ohos/release/uv"
+          $sdk = $env:OHOS_SDK
+          $signTool = "$sdk\..\..\toolchains\lib\binary-sign-tool.jar"
+          # Try alternate path via junction
+          if (-not (Test-Path $signTool)) {
+            $signTool = "$env:OHOS_SDK\..\..\toolchains\lib\binary-sign-tool.jar" -replace '\\','\'
+            # Resolve from DevEco Studio SDK location
+            $signTool = (Join-Path (Split-Path (Split-Path $sdk)) "toolchains\lib\binary-sign-tool.jar")
+          }
+
+          Write-Host "=== OHOS ELF Code Signing ==="
+          Write-Host "Sign tool: $signTool"
+          Write-Host "Input:     $bin"
+
+          if (-not (Test-Path $signTool)) {
+            # Fallback: search for binary-sign-tool.jar
+            $found = Get-ChildItem -Path "C:\Program Files\Huawei\DevEco Studio" -Recurse -Filter "binary-sign-tool.jar" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) { $signTool = $found.FullName }
+          }
+
+          if (-not (Test-Path $signTool)) {
+            Write-Host "WARN binary-sign-tool.jar not found, skipping signing"
+            Write-Host "The binary may need to be signed on the OHOS device"
+            return
+          }
+
+          $keystore = Join-Path $env:GITHUB_WORKSPACE "ohos\signing\ohos-self-sign.p12"
+          if (-not (Test-Path $keystore)) {
+            Write-Host "WARN Keystore not found: $keystore, skipping signing"
+            return
+          }
+
+          $outBin = "$bin.signed"
+          & java -jar $signTool sign `
+            -mode localSign `
+            -keyAlias ohos-key `
+            -inFile $bin `
+            -signAlg SHA256withECDSA `
+            -keystoreFile $keystore `
+            -keystorePwd ohos123456 `
+            -keyPwd ohos123456 `
+            -selfSign 1 `
+            -outFile $outBin
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "WARN Signing failed, using unsigned binary"
+            return
+          }
+
+          # Replace original with signed binary
+          Move-Item -Force $outBin $bin
+          Write-Host "OK Binary signed successfully"
+
+      # ============================================================
       # 6. Package & upload
       # ============================================================
       - name: Package binary
