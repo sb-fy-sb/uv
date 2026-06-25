@@ -212,9 +212,9 @@ jobs:
 
           Copy the uv binary to your OHOS device via hdc:
 
-              hdc file send uv /data/local/tmp/uv
-              hdc shell chmod +x /data/local/tmp/uv
-              hdc shell /data/local/tmp/uv --version
+              hdc file send uv /storage/Users/currentUser/usr/uv/uv
+              hdc shell chmod +x /storage/Users/currentUser/usr/uv/uv
+              hdc shell /storage/Users/currentUser/usr/uv/uv --version
           "@ | Set-Content "$releaseDir\README.md"
 
           Set-Location "$env:TEMP\uv-release"
