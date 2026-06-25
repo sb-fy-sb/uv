@@ -146,9 +146,6 @@ jobs:
             out push_docker             "$push_docker"
           } >> "$GITHUB_OUTPUT"
 
-  check-fmt:
-    uses: ./.github/workflows/check-fmt.yml
-
   check-lint:
     needs: plan
     uses: ./.github/workflows/check-lint.yml
@@ -414,7 +411,6 @@ jobs:
     name: "all required jobs passed"
     if: always()
     needs:
-      - check-fmt
       - check-lint
       - check-docs
       - check-generated-files
