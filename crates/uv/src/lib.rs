@@ -2810,7 +2810,9 @@ where
     if let Ok(exe) = std::env::current_exe() {
         if let Some(parent) = exe.parent() {
             // SAFETY: Called early in main() before spawning any threads.
-            unsafe { std::env::set_var(EnvVars::HOME, parent); }
+            unsafe {
+                std::env::set_var(EnvVars::HOME, parent);
+            }
         }
     }
 
@@ -2822,7 +2824,9 @@ where
     #[cfg(target_env = "ohos")]
     if std::env::var_os(EnvVars::UV_LIBC).is_none() {
         // SAFETY: Called early in main() before spawning any threads.
-        unsafe { std::env::set_var(EnvVars::UV_LIBC, "musl"); }
+        unsafe {
+            std::env::set_var(EnvVars::UV_LIBC, "musl");
+        }
     }
 
     // Set the `UV` variable to the current executable so it is implicitly propagated to all child

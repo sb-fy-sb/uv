@@ -1836,7 +1836,9 @@ impl RunCommand {
                 process.args(args);
                 process
             }
-            Self::Empty => uv_python::Interpreter::python_command_tokio(interpreter.sys_executable()),
+            Self::Empty => {
+                uv_python::Interpreter::python_command_tokio(interpreter.sys_executable())
+            }
         }
     }
 
