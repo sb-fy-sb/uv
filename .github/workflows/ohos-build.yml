@@ -287,7 +287,7 @@ jobs:
 
             ```sh
             mkdir -p /storage/Users/currentUser/usr/uv
-            curl -fSL -o /storage/Users/currentUser/usr/uv/uv https://mirror.ghproxy.com/https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.versioned_tag }}/uv-ohos-aarch64
+            curl -fSL -o /storage/Users/currentUser/usr/uv/uv https://ghfast.top/https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.versioned_tag }}/uv-ohos-aarch64
             chmod +x /storage/Users/currentUser/usr/uv/uv
             /storage/Users/currentUser/usr/uv/uv --version
             ```
@@ -337,14 +337,14 @@ jobs:
             ## 一键安装（国内镜像）
 
             ```sh
-            /bin/sh -c "$(curl -fsSL https://mirror.ghproxy.com/https://github.com/${{ github.repository }}/releases/download/ohos-latest/install-uv-ohos.sh)"
+            /bin/sh -c "$(curl -fsSL https://ghfast.top/https://github.com/${{ github.repository }}/releases/download/ohos-latest/install-uv-ohos.sh)"
             ```
 
             ## 手动下载
 
             ```sh
             mkdir -p /storage/Users/currentUser/usr/uv
-            curl -fSL -o /storage/Users/currentUser/usr/uv/uv https://mirror.ghproxy.com/https://github.com/${{ github.repository }}/releases/download/ohos-latest/uv-ohos-aarch64
+            curl -fSL -o /storage/Users/currentUser/usr/uv/uv https://ghfast.top/https://github.com/${{ github.repository }}/releases/download/ohos-latest/uv-ohos-aarch64
             chmod +x /storage/Users/currentUser/usr/uv/uv
             /storage/Users/currentUser/usr/uv/uv --version
             ```

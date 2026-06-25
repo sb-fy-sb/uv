@@ -2,7 +2,7 @@
 # uv for HarmonyOS (OHOS) 一键安装脚本
 #
 # 用法（国内镜像）:
-#   /bin/sh -c "$(curl -fsSL https://mirror.ghproxy.com/https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/install-uv-ohos.sh)"
+#   /bin/sh -c "$(curl -fsSL https://ghfast.top/https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/install-uv-ohos.sh)"
 #
 # 用法（直连 GitHub）:
 #   /bin/sh -c "$(curl -fsSL https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/install-uv-ohos.sh)"
@@ -22,10 +22,11 @@ RELEASE_TAG="ohos-latest"
 GITHUB_BASE="https://github.com/${REPO}/releases/download/${RELEASE_TAG}"
 GITHUB_API="https://api.github.com/repos/${REPO}/releases/tags/${RELEASE_TAG}"
 
-# 国内镜像代理（按优先级排列）
+# 国内镜像代理（按优先级排列，2026年6月验证可用）
 MIRRORS="
-https://mirror.ghproxy.com/
-https://ghproxy.net/
+https://ghfast.top/
+https://gh-proxy.com/
+https://cf.ghproxy.cc/
 "
 
 CACERT="/etc/ssl/certs/cacert.pem"
@@ -51,14 +52,14 @@ _do_curl() {
 
     if [ -n "$output" ]; then
         if [ -f "$CACERT" ]; then
-            curl -fSL --cacert "$CACERT" --retry 2 --connect-timeout 15 -o "$output" "$url" 2>/dev/null && return 0
+            curl -fSL --cacert "$CACERT" --retry 1 --connect-timeout 10 --max-time 300 -o "$output" "$url" 2>/dev/null && return 0
         fi
-        curl -fSL -k --retry 2 --connect-timeout 15 -o "$output" "$url" 2>/dev/null && return 0
+        curl -fSL -k --retry 1 --connect-timeout 10 --max-time 300 -o "$output" "$url" 2>/dev/null && return 0
     else
         if [ -f "$CACERT" ]; then
-            curl -fsSL --cacert "$CACERT" --connect-timeout 15 "$url" 2>/dev/null && return 0
+            curl -fsSL --cacert "$CACERT" --connect-timeout 10 "$url" 2>/dev/null && return 0
         fi
-        curl -fsSL -k --connect-timeout 15 "$url" 2>/dev/null && return 0
+        curl -fsSL -k --connect-timeout 10 "$url" 2>/dev/null && return 0
     fi
     return 1
 }
