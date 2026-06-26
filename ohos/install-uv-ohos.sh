@@ -260,7 +260,7 @@ EOF
     fi
 
     # 加载最新配置
-    source "$ZSHRC" 2>/dev/null
+    source "$ZSHRC" 2>/dev/null || true
 }
 
 # ── Python 检测与安装 ─────────────────────────────────
@@ -269,18 +269,18 @@ setup_python() {
 
     info "检测 Python ..."
 
-    PYTHON_PATH=$(command -v python 2>/dev/null)
+    PYTHON_PATH=$(command -v python 2>/dev/null || true)
     if [ -n "$PYTHON_PATH" ]; then
         ok "Python 已存在: $PYTHON_PATH"
         return 0
     fi
 
-    PYTHON3_PATH=$(command -v python3 2>/dev/null)
+    PYTHON3_PATH=$(command -v python3 2>/dev/null || true)
     if [ -z "$PYTHON3_PATH" ]; then
         info "未找到 Python，通过社区脚本安装 ..."
         if curl -fsSL https://gitcode.com/OpenHarmonyPCDeveloper/cmd-pkgs/releases/download/pkgs/install.sh | sh -s -- python 3.12.9; then
-            source "$HOME/.zshrc" 2>/dev/null
-            PYTHON3_PATH=$(command -v python3 2>/dev/null)
+            source "$HOME/.zshrc" 2>/dev/null || true
+            PYTHON3_PATH=$(command -v python3 2>/dev/null || true)
         fi
     fi
 
@@ -296,12 +296,12 @@ setup_python() {
 
     info "安装 Python $PYTHON_VERSION 到: $PYTHON_DEST"
     mkdir -p "$PYTHON_DEST/bin" "$PYTHON_DEST/lib" "$PYTHON_DEST/include"
-    cp -r "$PYTHON_INSTALL_PREFIX/bin"/* "$PYTHON_DEST/bin/" 2>/dev/null
-    cp -r "$PYTHON_INSTALL_PREFIX/lib"/* "$PYTHON_DEST/lib/" 2>/dev/null
-    cp -r "$PYTHON_INSTALL_PREFIX/include"/* "$PYTHON_DEST/include/" 2>/dev/null
+    cp -r "$PYTHON_INSTALL_PREFIX/bin"/* "$PYTHON_DEST/bin/" 2>/dev/null || true
+    cp -r "$PYTHON_INSTALL_PREFIX/lib"/* "$PYTHON_DEST/lib/" 2>/dev/null || true
+    cp -r "$PYTHON_INSTALL_PREFIX/include"/* "$PYTHON_DEST/include/" 2>/dev/null || true
 
-    ln -sf python3.12 "$PYTHON_DEST/bin/python3" 2>/dev/null
-    ln -sf python3.12 "$PYTHON_DEST/bin/python" 2>/dev/null
+    ln -sf python3.12 "$PYTHON_DEST/bin/python3" 2>/dev/null || true
+    ln -sf python3.12 "$PYTHON_DEST/bin/python" 2>/dev/null || true
 
     # 固定 Python 版本
     echo "$PYTHON_VERSION" > "$HOME/.python-version"
