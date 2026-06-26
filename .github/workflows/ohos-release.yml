@@ -176,34 +176,36 @@ jobs:
           $bin = "target/aarch64-unknown-linux-ohos/release/uv"
           $tag = "${{ github.ref_name }}"
           $name = "uv-ohos-aarch64-$tag"
-
-          $releaseDir = "$env:TEMP\uv-release\$name"
+          $releaseDir = "$env:TEMP\uv-release"
           New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
-          Copy-Item $bin "$releaseDir\uv"
 
-          @"
-          # uv for HarmonyOS (OHOS) aarch64 - $tag
+          # Raw binary for install script (fixed name: uv-ohos-aarch64)
+          Copy-Item $bin "$releaseDir\uv-ohos-aarch64"
 
-          Cross-compiled from Windows for OpenHarmony/HarmonyOS NEXT (aarch64).
-
-          ## Usage
-
-              hdc file send uv /storage/Users/currentUser/usr/uv/uv
-              hdc shell chmod +x /storage/Users/currentUser/usr/uv/uv
-              hdc shell /storage/Users/currentUser/usr/uv/uv --version
-          "@ | Set-Content "$releaseDir\README.md"
-
-          Set-Location "$env:TEMP\uv-release"
+          # Versioned tar.gz for archive
+          $archiveDir = "$releaseDir\$name"
+          New-Item -ItemType Directory -Path $archiveDir -Force | Out-Null
+          Copy-Item $bin "$archiveDir\uv"
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE "ohos\install-uv-ohos.sh") "$archiveDir\install-uv-ohos.sh"
+          Set-Location $releaseDir
           & tar czf "$name.tar.gz" $name
 
+          # Standalone install script
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE "ohos\install-uv-ohos.sh") "$releaseDir\install-uv-ohos.sh"
+
           "name=$name" >> $env:GITHUB_OUTPUT
-          "path=$env:TEMP\uv-release\$name.tar.gz" >> $env:GITHUB_OUTPUT
-          Write-Host "OK Packaged: $name.tar.gz"
+          "binary_path=$releaseDir\uv-ohos-aarch64" >> $env:GITHUB_OUTPUT
+          "archive_path=$releaseDir\$name.tar.gz" >> $env:GITHUB_OUTPUT
+          "script_path=$releaseDir\install-uv-ohos.sh" >> $env:GITHUB_OUTPUT
+          Write-Host "OK Packaged: uv-ohos-aarch64 + $name.tar.gz"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.package.outputs.path }}
+          files: |
+            ${{ steps.package.outputs.binary_path }}
+            ${{ steps.package.outputs.archive_path }}
+            ${{ steps.package.outputs.script_path }}
           generate_release_notes: true
           name: "uv OHOS ${{ github.ref_name }}"
           body: |
@@ -211,9 +213,32 @@ jobs:
 
             Cross-compiled binary for OpenHarmony/HarmonyOS NEXT.
 
-            ### Installation
+            ### Quick Install
 
             ```bash
-            hdc file send uv /storage/Users/currentUser/usr/uv/uv
-            hdc shell chmod +x /storage/Users/currentUser/usr/uv/uv
+            curl -fsSL https://ghfast.top/https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/install-uv-ohos.sh | sh
             ```
+
+      - name: Update ohos-latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ohos-latest
+          name: "uv OHOS (Latest)"
+          files: |
+            ${{ steps.package.outputs.binary_path }}
+            ${{ steps.package.outputs.archive_path }}
+            ${{ steps.package.outputs.script_path }}
+          body: |
+            ## Latest uv for HarmonyOS (OHOS) aarch64
+
+            This release is automatically updated with the latest build.
+
+            ### Quick Install
+
+            ```bash
+            curl -fsSL https://ghfast.top/https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/install-uv-ohos.sh | sh
+            ```
+
+            ### Version
+
+            Built from: ${{ github.ref_name }} (${{ github.sha }})
