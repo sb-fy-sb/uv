@@ -7,6 +7,7 @@
 #   - Windows x86_64
 #   - OHOS SDK at C:\ohos\sdk (LLVM toolchain + musl sysroot)
 #   - Rust toolchain with aarch64-unknown-linux-ohos target
+#   - Local proxy at 127.0.0.1:17891 (configured via .proxy file)
 
 name: OHOS Build
 
