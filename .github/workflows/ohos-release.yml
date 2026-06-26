@@ -115,6 +115,60 @@ jobs:
           if (-not ($header | Select-String "AArch64")) { throw "Not an AArch64 ELF binary" }
           Write-Host "OK Valid AArch64 ELF"
 
+      - name: Sign binary
+        shell: powershell
+        run: |
+          $bin = "target/aarch64-unknown-linux-ohos/release/uv"
+          $sdk = $env:OHOS_SDK
+
+          Write-Host "=== OHOS ELF Code Signing ==="
+
+          # Search for binary-sign-tool.jar
+          $signTool = $null
+          $searchPaths = @(
+            "$sdk\..\..\toolchains\lib\binary-sign-tool.jar",
+            "C:\Program Files\Huawei\DevEco Studio\sdk\toolchains\lib\binary-sign-tool.jar"
+          )
+          foreach ($p in $searchPaths) {
+            if (Test-Path $p) { $signTool = $p; break }
+          }
+          if (-not $signTool) {
+            $found = Get-ChildItem -Path "C:\Program Files\Huawei" -Recurse -Filter "binary-sign-tool.jar" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) { $signTool = $found.FullName }
+          }
+
+          if (-not $signTool) {
+            Write-Host "WARN binary-sign-tool.jar not found, skipping signing"
+            return
+          }
+          Write-Host "Sign tool: $signTool"
+
+          $keystore = Join-Path $env:GITHUB_WORKSPACE "ohos\signing\ohos-self-sign.p12"
+          if (-not (Test-Path $keystore)) {
+            Write-Host "WARN Keystore not found: $keystore, skipping signing"
+            return
+          }
+
+          $outBin = "$bin.signed"
+          & java -jar $signTool sign `
+            -mode localSign `
+            -keyAlias ohos-key `
+            -inFile $bin `
+            -signAlg SHA256withECDSA `
+            -keystoreFile $keystore `
+            -keystorePwd ohos123456 `
+            -keyPwd ohos123456 `
+            -selfSign 1 `
+            -outFile $outBin
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "WARN Signing failed, using unsigned binary"
+            return
+          }
+
+          Move-Item -Force $outBin $bin
+          Write-Host "OK Binary signed successfully"
+
       - name: Package release
         id: package
         shell: powershell
