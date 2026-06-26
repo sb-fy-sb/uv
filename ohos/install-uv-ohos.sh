@@ -239,6 +239,75 @@ install_binary() {
     ok "安装成功: $ver"
 }
 
+# ── PATH 配置 ─────────────────────────────────────────
+setup_path() {
+    ZSHRC="$HOME/.zshrc"
+    COMMENT_LINE="# uv Python environment"
+    PATH_LINE="export PATH=\"${INSTALL_DIR}:\$PATH\""
+    UV_PYTHON_LINE="export UV_PYTHON_INSTALL_DIR=${INSTALL_DIR}/.local/share/uv/python"
+
+    if [ -f "$ZSHRC" ] && grep -qF "$INSTALL_DIR" "$ZSHRC"; then
+        info "PATH 已配置在 $ZSHRC，跳过"
+    else
+        info "配置 ~/.zshrc ..."
+        cat >> "$ZSHRC" << EOF
+
+$COMMENT_LINE
+$PATH_LINE
+$UV_PYTHON_LINE
+EOF
+        ok "PATH 和环境变量已添加到 $ZSHRC"
+    fi
+
+    # 加载最新配置
+    source "$ZSHRC" 2>/dev/null
+}
+
+# ── Python 检测与安装 ─────────────────────────────────
+setup_python() {
+    UV_PYTHON_DIR="${INSTALL_DIR}/.local/share/uv/python"
+
+    info "检测 Python ..."
+
+    PYTHON_PATH=$(command -v python 2>/dev/null)
+    if [ -n "$PYTHON_PATH" ]; then
+        ok "Python 已存在: $PYTHON_PATH"
+        return 0
+    fi
+
+    PYTHON3_PATH=$(command -v python3 2>/dev/null)
+    if [ -z "$PYTHON3_PATH" ]; then
+        info "未找到 Python，通过社区脚本安装 ..."
+        if curl -fsSL https://gitcode.com/OpenHarmonyPCDeveloper/cmd-pkgs/releases/download/pkgs/install.sh | sh -s -- python 3.12.9; then
+            source "$HOME/.zshrc" 2>/dev/null
+            PYTHON3_PATH=$(command -v python3 2>/dev/null)
+        fi
+    fi
+
+    if [ -z "$PYTHON3_PATH" ]; then
+        warn "Python 安装失败，可稍后运行: ${INSTALL_DIR}/uv python install 3.12"
+        return 1
+    fi
+
+    # 将 Python 复制到 uv 管理的目录
+    PYTHON_INSTALL_PREFIX=$(dirname "$(dirname "$PYTHON3_PATH")")
+    PYTHON_VERSION=$("$PYTHON3_PATH" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
+    PYTHON_DEST="$UV_PYTHON_DIR/cpython-$PYTHON_VERSION-linux-aarch64-musl"
+
+    info "安装 Python $PYTHON_VERSION 到: $PYTHON_DEST"
+    mkdir -p "$PYTHON_DEST/bin" "$PYTHON_DEST/lib" "$PYTHON_DEST/include"
+    cp -r "$PYTHON_INSTALL_PREFIX/bin"/* "$PYTHON_DEST/bin/" 2>/dev/null
+    cp -r "$PYTHON_INSTALL_PREFIX/lib"/* "$PYTHON_DEST/lib/" 2>/dev/null
+    cp -r "$PYTHON_INSTALL_PREFIX/include"/* "$PYTHON_DEST/include/" 2>/dev/null
+
+    ln -sf python3.12 "$PYTHON_DEST/bin/python3" 2>/dev/null
+    ln -sf python3.12 "$PYTHON_DEST/bin/python" 2>/dev/null
+
+    # 固定 Python 版本
+    echo "$PYTHON_VERSION" > "$HOME/.python-version"
+    ok "Python $PYTHON_VERSION 已安装，版本固定: $HOME/.python-version"
+}
+
 # ── 完成 ──────────────────────────────────────────────
 print_success() {
     target_path="${INSTALL_DIR}/uv"
@@ -250,20 +319,11 @@ print_success() {
     echo ""
     printf "  ${BOLD}使用方法：${NC}\n"
     echo ""
-    printf "    ${YELLOW}${target_path} --version${NC}\n"
-    printf "    ${YELLOW}${target_path} python install 3.12${NC}\n"
-    printf "    ${YELLOW}${target_path} venv myenv${NC}\n"
-    printf "    ${YELLOW}${target_path} pip install requests${NC}\n"
+    printf "    ${YELLOW}uv --version${NC}\n"
+    printf "    ${YELLOW}uv python install 3.12${NC}\n"
+    printf "    ${YELLOW}uv venv myenv${NC}\n"
+    printf "    ${YELLOW}uv pip install requests${NC}\n"
     echo ""
-
-    # 如果不在 PATH 中，提示添加到 PATH
-    if ! command -v uv >/dev/null 2>&1; then
-        printf "  ${BOLD}添加到 PATH（可选）：${NC}\n"
-        echo ""
-        printf "    ${YELLOW}export PATH=\"${INSTALL_DIR}:\$PATH\"${NC}\n"
-        echo ""
-    fi
-
     printf "  ${BOLD}卸载：${NC}\n"
     echo ""
     printf "    ${YELLOW}rm ${target_path}${NC}\n"
@@ -282,6 +342,8 @@ main() {
 
     if download; then
         install_binary
+        setup_path
+        setup_python
         print_success
     fi
 }
