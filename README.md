@@ -46,18 +46,24 @@
 
 ## CI/CD 流水线
 
-本项目使用 GitHub Actions 实现 OHOS aarch64 二进制的自动化构建，分为两条分支：
+本项目使用 GitHub Actions 实现 OHOS aarch64 二进制的自动化构建和发版，分为两条流水线：
+
+| 流水线 | 文件 | 触发条件 | 用途 |
+|--------|------|----------|------|
+| **OHOS Build** | `ohos-build.yml` | push 到分支 | 日常构建验证，产物上传到 Artifacts |
+| **OHOS Release** | `ohos-release.yml` | push `ohos-v*` tag | 正式发版，签名 + 创建 GitHub Release |
 
 | 分支 | 用途 | 产出 |
 |------|------|------|
-| `ohos-aarch64` | CI 构建验证 | 上传到 GitHub Actions Artifacts（30 天） |
-| `ohos-release` | 发布版本 | 上传到 GitHub Release（版本化 + 滚动更新） |
+| `main` | 主开发分支，日常提交 | 上传到 GitHub Actions Artifacts（30 天） |
+| `ohos-release` | 发布分支，稳定版本代码 | 上传到 GitHub Release（版本化 + 滚动更新） |
 
 ### 触发条件
 
 | 触发方式 | 条件 |
 |----------|------|
-| **Push** | 推送到 `ohos-aarch64`、`ohos-release` 或 `claude/ohos-*` 分支，且变更涉及 Rust 源码、Cargo 配置或 workflow 文件 |
+| **Push** | 推送到 `main`、`ohos-release`、`ohos-aarch64` 或 `claude/ohos-*` 分支，且变更涉及 Rust 源码、Cargo 配置或 workflow 文件 |
+| **Tag** | 推送 `ohos-v*` 格式的 tag（如 `ohos-v0.1.4`），触发 Release 发版 |
 | **手动触发** | 通过 GitHub Actions 页面点击 "Run workflow" |
 
 ### 构建流程
@@ -75,33 +81,39 @@
 
 ### 构建产物
 
-**CI 构建**（`ohos-aarch64` 分支）：每次构建生成 Artifacts（保留 30 天）
+**CI 构建**（`main` 分支）：每次构建生成 Artifacts（保留 30 天）
 
 | Artifact | 内容 |
 |----------|------|
 | `uv-ohos-aarch64-<commit>-<date>.tar.gz` | 打包的 uv 二进制 + README |
 | `uv-ohos-aarch64-<commit>-<date>-raw` | 原始 ELF 二进制文件 |
 
-**Release 构建**（`ohos-release` 分支）：上传到 GitHub Release
+**Release 构建**（`ohos-release` 分支，tag 触发）：上传到 GitHub Release
 
 | Release Tag | 说明 |
 |-------------|------|
-| `ohos-YYYYMMDD` | 版本化 Release，每次推送创建新的 |
+| `ohos-vX.Y.Z` | 版本化 Release，每个 tag 创建一个 |
 | `ohos-latest` | 滚动 Release，始终指向最新版本（用于一键安装） |
 
 可在 [GitHub Actions](https://github.com/sb-fy-sb/uv/actions/workflows/ohos-build.yml) 页面下载 CI 产物，或在 [GitHub Releases](https://github.com/sb-fy-sb/uv/releases) 页面下载 Release 版本。
 
 ### 发布新版本
 
-将已验证的代码从 `ohos-aarch64` 合并到 `ohos-release` 分支即可触发发布：
+在 `ohos-release` 分支上打 tag 即可触发自动发版：
 
 ```bash
+# 1. 确保 ohos-release 分支代码稳定
 git checkout ohos-release
-git merge ohos-aarch64
-git push origin ohos-release
+git pull origin ohos-release
+
+# 2. 打 tag
+git tag ohos-v0.2.0
+
+# 3. 推送 tag 触发发版
+git push origin ohos-v0.2.0
 ```
 
-CI 会自动构建、验证、并创建版本化 Release（`ohos-YYYYMMDD`），同时更新 `ohos-latest` 滚动标签。
+CI 会自动构建、签名、并创建版本化 Release（`ohos-v0.2.0`），同时更新 `ohos-latest` 滚动标签。
 
 ---
 
@@ -115,7 +127,12 @@ CI 会自动构建、验证、并创建版本化 Release（`ohos-YYYYMMDD`），
 /bin/sh -c "$(curl -fsSL https://ghfast.top/https://github.com/sb-fy-sb/uv/releases/download/ohos-latest/install-uv-ohos.sh)"
 ```
 
-脚本会自动通过国内镜像下载最新构建的 uv 二进制并安装到 `/storage/Users/currentUser/usr/uv`。
+脚本会自动通过国内镜像下载最新构建的 uv 二进制并安装到 `/storage/Users/currentUser/usr/uv`，同时自动完成：
+
+1. **下载并安装** uv 二进制（通过镜像加速）
+2. **配置 PATH** — 自动写入 `~/.zshrc`，永久生效
+3. **检测 Python** — 如未安装，自动通过社区脚本安装 Python 3.12.9
+4. **ELF 签名** — 如设备有签名工具，自动签名二进制
 
 安装后验证：
 
@@ -329,7 +346,8 @@ hdc shell /storage/Users/currentUser/usr/uv/uv pip install requests
 ```
 ├── .cargo/config.toml              # OHOS 交叉编译配置
 ├── .github/workflows/
-│   └── ohos-build.yml              # OHOS CI/CD 构建流水线
+│   ├── ohos-build.yml              # OHOS CI 日常构建流水线
+│   └── ohos-release.yml            # OHOS Release 发版流水线（tag 触发）
 ├── ohos/                           # OHOS 相关文档和测试脚本
 │   ├── install-uv-ohos.sh          # 一键安装脚本（设备端 curl | sh）
 │   ├── ohos-cross-compile.md       # 交叉编译详细指南
