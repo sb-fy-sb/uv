@@ -246,20 +246,30 @@ setup_path() {
     PATH_LINE="export PATH=\"${INSTALL_DIR}:\$PATH\""
     UV_PYTHON_LINE="export UV_PYTHON_INSTALL_DIR=${INSTALL_DIR}/.local/share/uv/python"
 
-    if [ -f "$ZSHRC" ] && grep -qF "$INSTALL_DIR" "$ZSHRC"; then
-        info "PATH 已配置在 $ZSHRC，跳过"
-    else
-        info "配置 ~/.zshrc ..."
-        cat >> "$ZSHRC" << EOF
+    # 分别检查 PATH 和 UV_PYTHON_INSTALL_DIR
+    NEED_PATH=true
+    NEED_UV_PYTHON=true
 
-$COMMENT_LINE
-$PATH_LINE
-$UV_PYTHON_LINE
-EOF
-        ok "PATH 和环境变量已添加到 $ZSHRC"
+    if [ -f "$ZSHRC" ]; then
+        grep -qF "PATH=\"${INSTALL_DIR}" "$ZSHRC" && NEED_PATH=false
+        grep -qF "UV_PYTHON_INSTALL_DIR" "$ZSHRC" && NEED_UV_PYTHON=false
     fi
 
-    # 加载最新配置
+    if [ "$NEED_PATH" = true ] || [ "$NEED_UV_PYTHON" = true ]; then
+        info "配置 ~/.zshrc ..."
+        {
+            echo ""
+            echo "$COMMENT_LINE"
+            [ "$NEED_PATH" = true ] && echo "$PATH_LINE" && ok "PATH 已添加"
+            [ "$NEED_UV_PYTHON" = true ] && echo "$UV_PYTHON_LINE" && ok "UV_PYTHON_INSTALL_DIR 已添加"
+        } >> "$ZSHRC"
+    else
+        info "PATH 和 UV_PYTHON_INSTALL_DIR 已配置在 $ZSHRC，跳过"
+    fi
+
+    # 确保当前 shell 也加载
+    export PATH="${INSTALL_DIR}:$PATH"
+    export UV_PYTHON_INSTALL_DIR="${INSTALL_DIR}/.local/share/uv/python"
     source "$ZSHRC" 2>/dev/null || true
 }
 
