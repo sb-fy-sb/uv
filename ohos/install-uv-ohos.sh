@@ -160,7 +160,9 @@ get_latest_version() {
 # ── 下载 ──────────────────────────────────────────────
 download() {
     download_url="${GITHUB_BASE}/${BINARY_NAME}"
+    uvx_url="${GITHUB_BASE}/uvx-ohos-aarch64"
     target_path="${INSTALL_DIR}/uv"
+    uvx_target_path="${INSTALL_DIR}/uvx"
 
     # 检查是否已存在
     if [ -f "$target_path" ]; then
@@ -176,49 +178,62 @@ download() {
 
     info "下载 uv (OHOS aarch64)..."
 
-    # 下载到临时文件
+    # 下载 uv
     tmp_file="${INSTALL_DIR}/.uv_downloading"
-
     if download_with_fallback "$download_url" "$tmp_file"; then
         mv "$tmp_file" "$target_path"
     else
         rm -f "$tmp_file"
         fail "下载失败，所有镜像和直连均不可用"
         fail "  URL: $download_url"
-        fail ""
-        fail "手动下载命令："
-        fail "  curl -fSL -o ${target_path} https://mirror.ghproxy.com/${download_url}"
         exit 1
+    fi
+
+    # 下载 uvx
+    info "下载 uvx (OHOS aarch64)..."
+    tmp_file="${INSTALL_DIR}/.uvx_downloading"
+    if download_with_fallback "$uvx_url" "$tmp_file"; then
+        mv "$tmp_file" "$uvx_target_path"
+    else
+        rm -f "$tmp_file"
+        warn "uvx 下载失败，uvx 命令将不可用"
+        warn "  URL: $uvx_url"
     fi
 }
 
 # ── 安装 ──────────────────────────────────────────────
 install_binary() {
     target_path="${INSTALL_DIR}/uv"
+    uvx_target_path="${INSTALL_DIR}/uvx"
 
     info "设置可执行权限..."
     chmod +x "$target_path"
+    [ -f "$uvx_target_path" ] && chmod +x "$uvx_target_path"
 
     # OHOS/HarmonyOS ELF 签名：部分设备需要签名后才能执行
-    # 尝试使用 Rust 工具链自带的签名工具（如果已安装）
+    SIGN_TOOL=""
     if [ -n "$OHOS_BINARY_SIGN_TOOL" ] && [ -x "$OHOS_BINARY_SIGN_TOOL" ]; then
-        info "使用签名工具签名: $OHOS_BINARY_SIGN_TOOL"
-        "$OHOS_BINARY_SIGN_TOOL" "$target_path" 2>/dev/null && ok "签名完成" || warn "签名失败，尝试继续..."
+        SIGN_TOOL="$OHOS_BINARY_SIGN_TOOL"
     elif command -v binary-sign-tool >/dev/null 2>&1; then
-        info "使用 binary-sign-tool 签名..."
-        binary-sign-tool "$target_path" 2>/dev/null && ok "签名完成" || warn "签名失败，尝试继续..."
+        SIGN_TOOL="binary-sign-tool"
     else
-        # 查找常见签名工具路径
         for sign_tool in \
             "$HOME"/usr/rust-*/tool/binary-sign-tool \
             /data/local/tmp/rust-*/tool/binary-sign-tool \
             /storage/Users/currentUser/usr/rust-*/tool/binary-sign-tool; do
             if [ -x "$sign_tool" ]; then
-                info "使用签名工具签名: $sign_tool"
-                "$sign_tool" "$target_path" 2>/dev/null && ok "签名完成" || warn "签名失败，尝试继续..."
+                SIGN_TOOL="$sign_tool"
                 break
             fi
         done
+    fi
+
+    if [ -n "$SIGN_TOOL" ]; then
+        info "使用签名工具: $SIGN_TOOL"
+        "$SIGN_TOOL" "$target_path" 2>/dev/null && ok "uv 签名完成" || warn "uv 签名失败，尝试继续..."
+        if [ -f "$uvx_target_path" ]; then
+            "$SIGN_TOOL" "$uvx_target_path" 2>/dev/null && ok "uvx 签名完成" || warn "uvx 签名失败，尝试继续..."
+        fi
     fi
 
     # 首次运行确认（OHOS ELF 签名机制可能需要）

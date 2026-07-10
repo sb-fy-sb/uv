@@ -109,16 +109,20 @@ jobs:
       - name: Verify binary
         shell: powershell
         run: |
-          $bin = "target/aarch64-unknown-linux-ohos/release/uv"
           $readelf = "$env:OHOS_SDK\llvm\bin\llvm-readelf.exe"
-          $header = & $readelf -h $bin 2>&1
-          if (-not ($header | Select-String "AArch64")) { throw "Not an AArch64 ELF binary" }
-          Write-Host "OK Valid AArch64 ELF"
+          foreach ($bin in @("target/aarch64-unknown-linux-ohos/release/uv", "target/aarch64-unknown-linux-ohos/release/uvx")) {
+            if (-not (Test-Path $bin)) {
+              Write-Host "WARN $bin not found, skipping"
+              continue
+            }
+            $header = & $readelf -h $bin 2>&1
+            if (-not ($header | Select-String "AArch64")) { throw "$bin is not an AArch64 ELF binary" }
+            Write-Host "OK Valid AArch64 ELF: $bin"
+          }
 
       - name: Sign binary
         shell: powershell
         run: |
-          $bin = "target/aarch64-unknown-linux-ohos/release/uv"
           $sdk = $env:OHOS_SDK
 
           Write-Host "=== OHOS ELF Code Signing ==="
@@ -149,43 +153,56 @@ jobs:
             return
           }
 
-          $outBin = "$bin.signed"
-          & java -jar $signTool sign `
-            -mode localSign `
-            -keyAlias ohos-key `
-            -inFile $bin `
-            -signAlg SHA256withECDSA `
-            -keystoreFile $keystore `
-            -keystorePwd ohos123456 `
-            -keyPwd ohos123456 `
-            -selfSign 1 `
-            -outFile $outBin
+          foreach ($bin in @("target/aarch64-unknown-linux-ohos/release/uv", "target/aarch64-unknown-linux-ohos/release/uvx")) {
+            if (-not (Test-Path $bin)) {
+              Write-Host "WARN $bin not found, skipping"
+              continue
+            }
+            $outBin = "$bin.signed"
+            & java -jar $signTool sign `
+              -mode localSign `
+              -keyAlias ohos-key `
+              -inFile $bin `
+              -signAlg SHA256withECDSA `
+              -keystoreFile $keystore `
+              -keystorePwd ohos123456 `
+              -keyPwd ohos123456 `
+              -selfSign 1 `
+              -outFile $outBin
 
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "WARN Signing failed, using unsigned binary"
-            return
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "WARN Signing $bin failed, using unsigned binary"
+              continue
+            }
+
+            Move-Item -Force $outBin $bin
+            Write-Host "OK Signed: $bin"
           }
-
-          Move-Item -Force $outBin $bin
-          Write-Host "OK Binary signed successfully"
 
       - name: Package release
         id: package
         shell: powershell
         run: |
-          $bin = "target/aarch64-unknown-linux-ohos/release/uv"
+          $uvBin = "target/aarch64-unknown-linux-ohos/release/uv"
+          $uvxBin = "target/aarch64-unknown-linux-ohos/release/uvx"
           $tag = "${{ github.ref_name }}"
           $name = "uv-ohos-aarch64-$tag"
           $releaseDir = "$env:TEMP\uv-release"
           New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
 
-          # Raw binary for install script (fixed name: uv-ohos-aarch64)
-          Copy-Item $bin "$releaseDir\uv-ohos-aarch64"
+          # Raw binaries for install script
+          Copy-Item $uvBin "$releaseDir\uv-ohos-aarch64"
+          if (Test-Path $uvxBin) {
+            Copy-Item $uvxBin "$releaseDir\uvx-ohos-aarch64"
+          }
 
           # Versioned tar.gz for archive
           $archiveDir = "$releaseDir\$name"
           New-Item -ItemType Directory -Path $archiveDir -Force | Out-Null
-          Copy-Item $bin "$archiveDir\uv"
+          Copy-Item $uvBin "$archiveDir\uv"
+          if (Test-Path $uvxBin) {
+            Copy-Item $uvxBin "$archiveDir\uvx"
+          }
           Copy-Item (Join-Path $env:GITHUB_WORKSPACE "ohos\install-uv-ohos.sh") "$archiveDir\install-uv-ohos.sh"
           Set-Location $releaseDir
           & tar czf "$name.tar.gz" $name
@@ -195,15 +212,17 @@ jobs:
 
           "name=$name" >> $env:GITHUB_OUTPUT
           "binary_path=$releaseDir\uv-ohos-aarch64" >> $env:GITHUB_OUTPUT
+          "uvx_binary_path=$releaseDir\uvx-ohos-aarch64" >> $env:GITHUB_OUTPUT
           "archive_path=$releaseDir\$name.tar.gz" >> $env:GITHUB_OUTPUT
           "script_path=$releaseDir\install-uv-ohos.sh" >> $env:GITHUB_OUTPUT
-          Write-Host "OK Packaged: uv-ohos-aarch64 + $name.tar.gz"
+          Write-Host "OK Packaged: uv + uvx + $name.tar.gz"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             ${{ steps.package.outputs.binary_path }}
+            ${{ steps.package.outputs.uvx_binary_path }}
             ${{ steps.package.outputs.archive_path }}
             ${{ steps.package.outputs.script_path }}
           generate_release_notes: true
@@ -226,6 +245,7 @@ jobs:
           name: "uv OHOS (Latest)"
           files: |
             ${{ steps.package.outputs.binary_path }}
+            ${{ steps.package.outputs.uvx_binary_path }}
             ${{ steps.package.outputs.archive_path }}
             ${{ steps.package.outputs.script_path }}
           body: |
