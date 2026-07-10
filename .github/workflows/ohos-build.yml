@@ -3,6 +3,8 @@
 # Cross-compile uv for HarmonyOS (OHOS) aarch64 from a Windows x86_64 host.
 # Uses the OHOS SDK (LLVM + musl sysroot) for cross-compilation.
 #
+# Note: Python runtime (libgcc_s.so) may need to be bundled for OHOS devices.
+#
 # Branch model:
 #   ohos-aarch64    — CI builds: verify compilation, upload Artifacts (30 days)
 #   ohos-release    — Release builds: CI + upload to GitHub Release (versioned + rolling)
