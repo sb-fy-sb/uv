@@ -12,7 +12,7 @@
     "patch": 9,
     "prerelease": null,
     "url": "https://sb-fy-sb.github.io/python-build-mirror/github/python-build-standalone/releases/download/ohos/cpython-3.12.9-aarch64-unknown-linux-musl-install_only_stripped.tar.gz",
-    "sha256": "467edca703ab84397e1eab1ba1a0fb96811f4d83817721d76c9e8ced2f68e002",
+    "sha256": "205ab85f01cd170ce66705a7185bd244b11cbd1d542e7e2bf26bb4eefce7da94",
     "variant": null,
     "build": "ohos"
   },
