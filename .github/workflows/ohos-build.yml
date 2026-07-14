@@ -4,6 +4,7 @@
 # Uses the OHOS SDK (LLVM + musl sysroot) for cross-compilation.
 #
 # Note: Python runtime (libgcc_s.so) may need to be bundled for OHOS devices.
+# Metadata trimmed to mirror-only entries.
 #
 # Branch model:
 #   ohos-aarch64    — CI builds: verify compilation, upload Artifacts (30 days)
