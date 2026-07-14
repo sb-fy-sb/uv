@@ -301,6 +301,7 @@ jobs:
 
       - name: Upload artifact (tar.gz)
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: ${{ steps.package.outputs.name }}
           path: ${{ steps.package.outputs.path }}
@@ -308,6 +309,7 @@ jobs:
 
       - name: Upload artifact (raw binary)
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: ${{ steps.package.outputs.name }}-raw
           path: target/aarch64-unknown-linux-ohos/release/uv
