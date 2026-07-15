@@ -169,7 +169,7 @@ download() {
         existing_ver=$("$target_path" --version 2>/dev/null || echo "unknown")
         warn "已存在 uv: $existing_ver"
         printf "是否覆盖？[y/N] "
-        read -r answer
+        read -r answer < /dev/tty
         case "$answer" in
             y*|Y*) ;;
             *) ok "保留现有版本，跳过安装"; return 1 ;;
