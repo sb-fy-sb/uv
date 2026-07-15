@@ -11,7 +11,7 @@
     "minor": 12,
     "patch": 9,
     "prerelease": null,
-    "url": "https://sb-fy-sb.github.io/python-build-mirror/github/python-build-standalone/releases/download/ohos/cpython-3.12.9-aarch64-unknown-linux-musl-install_only_stripped.tar.gz",
+    "url": "https://ghfast.top/https://sb-fy-sb.github.io/python-build-mirror/github/python-build-standalone/releases/download/ohos/cpython-3.12.9-aarch64-unknown-linux-musl-install_only_stripped.tar.gz",
     "sha256": "c5985aba64c30108714a5f1a60af0eb8bed737967ca129959b590cd1ce37ec08",
     "variant": null,
     "build": "ohos"
