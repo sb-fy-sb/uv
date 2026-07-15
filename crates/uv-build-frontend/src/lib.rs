@@ -185,13 +185,10 @@ struct Pep517Backend {
 /// other platforms.
 #[cfg(target_env = "ohos")]
 const OHOS_PLATFORM_STUB: &str = "\
-import sys as _sys
-if _sys.platform == 'ohos':
-    _sys.platform = 'linux'
 import sysconfig as _sysconfig
 _orig_get_platform = _sysconfig.get_platform
 def _patched_get_platform():
-    return _orig_get_platform().replace('harmonyos', 'linux').replace('ohos', 'linux')
+    return _orig_get_platform().replace('harmonyos', 'linux')
 _sysconfig.get_platform = _patched_get_platform
 try:
     import distutils.util
