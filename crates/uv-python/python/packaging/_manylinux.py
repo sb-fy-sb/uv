@@ -105,7 +105,7 @@ def _glibc_version_string_ctypes() -> "str | None":
     """
     try:
         import ctypes
-    except ImportError:
+    except (ImportError, MemoryError):
         return None
 
     # ctypes.CDLL(None) internally calls dlopen(NULL), and as the dlopen

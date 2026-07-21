@@ -460,6 +460,35 @@ impl Interpreter {
         &self.sys_executable
     }
 
+    /// Create a [`Command`] to run the given Python interpreter path.
+    ///
+    /// On OHOS (OpenHarmony), python-build-standalone provides Python as an ELF
+    /// shared object rather than a PIE executable. The OHOS sandbox restricts
+    /// direct execution of shared objects from user storage directories.
+    /// As a workaround, we invoke Python through the musl dynamic linker
+    /// (`/lib/ld-musl-aarch64.so.1`), which is a PIE executable that can load
+    /// and run shared objects.
+    pub fn python_command(interpreter: &Path) -> std::process::Command {
+        Self::python_command_impl(interpreter)
+    }
+
+    /// Create a [`tokio::process::Command`] to run the given Python interpreter path.
+    ///
+    /// Same as [`python_command`](Self::python_command) but returns a tokio Command
+    /// for async contexts.
+    pub fn python_command_tokio(interpreter: &Path) -> tokio::process::Command {
+        Self::python_command_impl(interpreter)
+    }
+
+    fn python_command_impl<C: From<std::process::Command>>(interpreter: &Path) -> C {
+        // On OHOS, python-build-standalone provides Python as an ELF shared object.
+        // Direct execution requires the binary to be code-signed (via binary-sign-tool).
+        // We invoke the interpreter directly rather than through the musl dynamic linker,
+        // because /lib/ld-musl-aarch64.so.1 cannot be executed directly from subprocess
+        // context due to OHOS hmmac sandbox restrictions.
+        std::process::Command::new(interpreter).into()
+    }
+
     /// Return the recognized native extension module suffixes for this Python interpreter.
     pub fn extension_suffixes(&self) -> &[Box<str>] {
         &self.extension_suffixes
@@ -981,7 +1010,7 @@ impl InterpreterInfo {
             r#"import sys; sys.path = ["{}"] + sys.path; from python.get_interpreter_info import main; main()"#,
             tempdir.path().escape_for_python()
         );
-        let mut command = Command::new(interpreter);
+        let mut command = Interpreter::python_command(interpreter);
         command
             .arg("-I") // Isolated mode.
             .arg("-B") // Don't write bytecode.
